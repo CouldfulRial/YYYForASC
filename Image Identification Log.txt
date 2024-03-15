@@ -1,0 +1,5 @@
+%Image Identification Log
+
+2024.3.15
+
+test camera to catch a image file in robot, next job is export it to browser.
