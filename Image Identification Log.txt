@@ -3,3 +3,7 @@
 2024.3.15
 
 test camera to catch a image file in robot, next job is export it to browser.
+
+
+2024.3.23
+能够识别棋盘并自动记录，从得到的图像自动计算距离矩阵。
