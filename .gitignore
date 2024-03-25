@@ -1,6 +1,28 @@
-build/
-devel/
-*.pyc
-*.swp
-*~
+# Ignore the _build directory of the documentation
+docs/_build/
+
+# Ignore the "build" and "devel" folder of the catkin_ws
+catkin_ws/build/
+catkin_ws/devel/
+
+# Ignore the ".catkin_workshop" file of the catkin_ws
+catkin_ws/.catkin_workspace
+
+# Ignore the auto-generated "CMakeLists.txt" of the catkin_ws
+catkin_ws/src/CMakeLists.txt
+
+# Ignore the "build" and "bin" folder of the drivers
+catkin_ws/src/asclinic_pkg/src/drivers/build/
+catkin_ws/src/asclinic_pkg/src/drivers/bin/
+
+# Ignore any ROS log directories
+**/.ros/log/
+
+# Ignore the RPLidar package
+catkin_ws/src/rplidar_ros/
+
+# Ignore typical unwanted files
 .DS_Store
+
+# Ignore swp files
+*.swp
