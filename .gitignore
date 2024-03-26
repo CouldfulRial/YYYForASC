@@ -26,3 +26,6 @@ catkin_ws/src/rplidar_ros/
 
 # Ignore swp files
 *.swp
+
+# Ignore .vscode folder
+.vscode/
