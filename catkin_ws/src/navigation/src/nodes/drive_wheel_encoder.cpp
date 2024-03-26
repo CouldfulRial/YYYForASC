@@ -1,3 +1,25 @@
+// Copyright (C) 2021, The University of Melbourne, Department of Electrical and Electronic Engineering (EEE)
+//
+// This file is part of ASClinic-System.
+//    
+// See the root of the repository for license details.
+//
+// ----------------------------------------------------------------------------
+//     _    ____   ____ _ _       _          ____            _                 
+//    / \  / ___| / ___| (_)____ (_) ___    / ___| _   _ ___| |_ ___ ________  
+//   / _ \ \___ \| |   | | |  _ \| |/ __|___\___ \| | | / __| __/ _ \  _   _ \ 
+//  / ___ \ ___) | |___| | | | | | | (_|_____|__) | |_| \__ \ ||  __/ | | | | |
+// /_/   \_\____/ \____|_|_|_| |_|_|\___|   |____/ \__, |___/\__\___|_| |_| |_|
+//                                                 |___/                       
+//
+// DESCRIPTION:
+// Node for monitoring GPIO pins connected to wheel encoders
+//
+// ----------------------------------------------------------------------------
+
+
+
+
 #include "ros/ros.h"
 #include <ros/package.h>
 #include "std_msgs/Int32.h"
