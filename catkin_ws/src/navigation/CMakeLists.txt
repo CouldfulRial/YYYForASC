@@ -133,9 +133,13 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
+  src/drivers/src/
+  #include/nodes
   ${catkin_INCLUDE_DIRS}
 )
+
+
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -151,6 +155,10 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(drive_wheel_encoder src/nodes/drive_wheel_encoder.cpp)
+add_executable(motor_speed_control src/nodes/motor_speed_control.cpp
+                                   src/drivers/src/i2c_driver/i2c_driver.cpp
+                                   src/drivers/src/pololu_smc_g2/pololu_smc_g2.cpp)
+
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -161,12 +169,14 @@ add_executable(drive_wheel_encoder src/nodes/drive_wheel_encoder.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(drive_wheel_encoder ${catkin_EXPORTED_TARGETS})
+add_dependencies(motor_speed_control ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(drive_wheel_encoder ${catkin_LIBRARIES} -lgpiod)
+target_link_libraries(motor_speed_control ${catkin_LIBRARIES})
 
 #############
 ## Install ##
