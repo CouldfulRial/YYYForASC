@@ -55,8 +55,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  LeftRightFloat32.msg
-  LeftRightInt32.msg
+  LRFloat32.msg
+  LRInt32.msg
 )
 
 ## Generate services in the 'srv' folder
