@@ -14,8 +14,8 @@
 //#include <boost/thread/thread.hpp>
 
 // Include the asclinic message types
-#include "asclinic_pkg/LeftRightInt32.h"
-#include "asclinic_pkg/LeftRightFloat32.h"
+#include "navigation/LeftRightInt32.h"
+// #include "asclinic_pkg/LeftRightFloat32.h"
 
 // Include the asclinic constants
 //#include "nodes/constant.h"
@@ -29,7 +29,7 @@
 //   0 : Info is not displayed. Warnings and errors are still displayed
 //   1 : Startup info is displayed
 //   2 : Info about messages published is displayed
-int m_encoder_read_verbosity = 1;
+int m_encoder_read_verbosity = 2;
 
 // > The "gpiochip" number
 int m_gpio_chip_number = 1;
@@ -95,7 +95,7 @@ void timerCallbackForPublishing(const ros::TimerEvent&)
 	m_counting_mutex.unlock();
 
 	// Publish a message
-	asclinic_pkg::LeftRightInt32 msg;
+	navigation::LeftRightInt32 msg;
 	msg.left  = counts_left_a_local_copy  + counts_left_b_local_copy;
 	msg.right = counts_right_a_local_copy + counts_right_b_local_copy;
 	msg.seq_num = s_sequence_number_for_msgs;
@@ -402,7 +402,7 @@ int main(int argc, char* argv[])
 	// Initialise a publisher for the encoder counts
 	// > Note, the second is the size of our publishing queue. We choose to
 	//   buffer encoder counts messages because we want to avoid losing counts.
-	m_encoder_counts_publisher = nh_for_group.advertise<asclinic_pkg::LeftRightInt32>("encoder_counts", 10, false);
+	m_encoder_counts_publisher = nh_for_group.advertise<navigation::LeftRightInt32>("encoder_counts", 10, false);
 
 	// Initialise a timer
 	m_timer_for_publishing = nodeHandle.createTimer(ros::Duration(m_delta_t_for_publishing_counts), timerCallbackForPublishing, false);
