@@ -1,0 +1,25 @@
+0000000000000000000000000000000000000000 ed817c721f7afb2ad09d80cfedc73470ea891fb7 asc <asc@asc07-jetson.(none)> 1710655832 +1100	clone: from https://github.com/CouldfulRial/YYYForASC.git
+ed817c721f7afb2ad09d80cfedc73470ea891fb7 e07f38598c4e9046af506fad247d140b2f97bb87 CouldfulRial <yfgcould@myyahoo.com> 1710657448 +1100	commit: Create a catkin workspace, and create a beginner_tutorials package
+e07f38598c4e9046af506fad247d140b2f97bb87 619a1b83d6b59b89492c8feab0dd8d4e6e4eacf0 CouldfulRial <yfgcould@myyahoo.com> 1711271938 +1100	pull: Fast-forward
+619a1b83d6b59b89492c8feab0dd8d4e6e4eacf0 f7610957954af753bcb800f49e194651bb620ac5 CouldfulRial <yfgcould@myyahoo.com> 1711274430 +1100	commit: 24/3 Test
+f7610957954af753bcb800f49e194651bb620ac5 c6f70da2cbf8b660328f46b4b92ee37ac8809dfa CouldfulRial <yfgcould@myyahoo.com> 1711275819 +1100	pull: Fast-forward
+c6f70da2cbf8b660328f46b4b92ee37ac8809dfa 8514e1e97fe74c7876e36244ac2ab57d83c1d820 CouldfulRial <yfgcould@myyahoo.com> 1711354304 +1100	pull: Fast-forward
+8514e1e97fe74c7876e36244ac2ab57d83c1d820 9de7130e671c85ab24c7dd886239f5b04a6d84c4 CouldfulRial <yfgcould@myyahoo.com> 1711354435 +1100	pull: Fast-forward
+9de7130e671c85ab24c7dd886239f5b04a6d84c4 571da0a043d45d698beb0d70521edcf85717446a CouldfulRial <yfgcould@myyahoo.com> 1711355216 +1100	pull: Fast-forward
+571da0a043d45d698beb0d70521edcf85717446a cb2d4706de3ceaa50ede6ba57dd0ce6076b870c2 CouldfulRial <yfgcould@myyahoo.com> 1711355448 +1100	pull: Fast-forward
+cb2d4706de3ceaa50ede6ba57dd0ce6076b870c2 cb53b6a814dfb8f73c7abdee462d19cf33a7171d CouldfulRial <yfgcould@myyahoo.com> 1711359129 +1100	commit: Tested encoder_counter in C++ via GPIO for motors
+cb53b6a814dfb8f73c7abdee462d19cf33a7171d 16327ce3e9c110915abc8f56fee72968337e5cb0 CouldfulRial <yfgcould@myyahoo.com> 1711359149 +1100	pull --tags origin main: Merge made by the 'recursive' strategy.
+16327ce3e9c110915abc8f56fee72968337e5cb0 082c56ad872564c8aac84629894883f0ab458d7b CouldfulRial <yfgcould@myyahoo.com> 1711366437 +1100	commit: encoder update 25/3
+082c56ad872564c8aac84629894883f0ab458d7b b37a3186b6c706bcf1ee90920fc634350a65acc8 CouldfulRial <yfgcould@myyahoo.com> 1711422151 +1100	pull: Fast-forward
+b37a3186b6c706bcf1ee90920fc634350a65acc8 2a6753786e5e726464249b5f1ea9a12994f85667 CouldfulRial <yfgcould@myyahoo.com> 1711423770 +1100	commit: Complete drive_wheel_encoder node
+2a6753786e5e726464249b5f1ea9a12994f85667 906ac96f16a86765e3b1a5bcacc249b1a208a2a3 CouldfulRial <yfgcould@myyahoo.com> 1711423771 +1100	pull --tags origin main: Merge made by the 'recursive' strategy.
+906ac96f16a86765e3b1a5bcacc249b1a208a2a3 bf3922f91214ba4b2a82b2a22dd4aaf24fcaa01b CouldfulRial <yfgcould@myyahoo.com> 1711425488 +1100	commit: Renamed the message files for left and right wheels. Before every catkin_make, make sure to source the package! Wrote a launch file for encoder
+bf3922f91214ba4b2a82b2a22dd4aaf24fcaa01b 717b38ec6c45fb55a2d9855c425c9be7b78daeb7 CouldfulRial <yfgcould@myyahoo.com> 1711428298 +1100	commit: Moved the i2c drivers and polulu smc drivers
+717b38ec6c45fb55a2d9855c425c9be7b78daeb7 450c62f0b1505ed8f8e65e083b75880ed743ca60 CouldfulRial <yfgcould@myyahoo.com> 1711428607 +1100	commit: Add the motor_speed_control node
+450c62f0b1505ed8f8e65e083b75880ed743ca60 a95be6ced96813c73a4efd2e09a2ac77f0748599 CouldfulRial <yfgcould@myyahoo.com> 1711428639 +1100	commit: Add the copyright title
+a95be6ced96813c73a4efd2e09a2ac77f0748599 b169ecb76bae919507db5cad4698fc51fd876c75 CouldfulRial <yfgcould@myyahoo.com> 1711428892 +1100	pull --tags origin main: Merge made by the 'recursive' strategy.
+b169ecb76bae919507db5cad4698fc51fd876c75 e07ad31de4bcb410a42f214785472cba7695c5c4 CouldfulRial <yfgcould@myyahoo.com> 1711429438 +1100	pull --tags origin main: Fast-forward
+e07ad31de4bcb410a42f214785472cba7695c5c4 312c9fa6b04b0f830538f3314e649b6b73bb43e6 CouldfulRial <yfgcould@myyahoo.com> 1712385546 +1100	pull --tags origin main: Fast-forward
+312c9fa6b04b0f830538f3314e649b6b73bb43e6 78a13b256e9bcff22249aceb3c0dd5f9aa97de58 CouldfulRial <yfgcould@myyahoo.com> 1712647390 +1000	commit: new node "rotate_by_angle" to rotate the wheels to target angle
+78a13b256e9bcff22249aceb3c0dd5f9aa97de58 d38904a7319230d6008737d35dff37235eb745c8 CouldfulRial <yfgcould@myyahoo.com> 1712648799 +1000	commit: change to rotate_by_angle
+d38904a7319230d6008737d35dff37235eb745c8 80598ea8cf6fd92d2aa9ec98767ef101a96c3107 CouldfulRial <yfgcould@myyahoo.com> 1712842230 +1000	commit: node get_average_count
