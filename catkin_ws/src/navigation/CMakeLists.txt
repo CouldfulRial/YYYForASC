@@ -189,6 +189,8 @@ target_link_libraries(i2c_for_motor       ${catkin_LIBRARIES})
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/nodes/rotate_by_angle.py
+  src/nodes/get_average_count.py
+  src/nodes/rotate_by_time.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

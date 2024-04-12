@@ -1,0 +1,33 @@
+<launch>
+    <!-- list of arguments that can be given as inputs of the launch file -->
+    <arg name="wheel"       default="left" />
+    <arg name="target_time" default="15" />
+    <arg name="target_file" default="data.csv" />
+
+    <!-- wheel encoder -->
+    <node
+        name="rotate_by_time"
+        pkg="navigation" 
+        type="rotate_by_time.py" 
+        output="screen">
+
+        <param
+            name="wheel"
+            type="string"
+            value="$(arg wheel)"
+        />
+
+        <param
+            name="target_time"
+            type="int"
+            value="$(arg target_time)"
+        />
+
+        <param
+            name="target_file"
+            type="string"
+            value="$(arg target_file)"
+        />
+        
+    </node>
+</launch>
