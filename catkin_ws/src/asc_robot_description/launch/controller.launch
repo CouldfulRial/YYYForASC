@@ -1,0 +1,9 @@
+<launch>
+
+<rosparam file="$(find asc_robot_description)/launch/controller.yaml" command="load"/>
+<node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" ns="asc_robot" args="left_rev_position_controller right_rev_position_controller pan_rev_position_controller tilt_rev_position_controller joint_state_controller "/>
+<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
+  <remap from="/joint_states" to="/asc_robot/joint_states"/>
+</node>
+
+</launch>

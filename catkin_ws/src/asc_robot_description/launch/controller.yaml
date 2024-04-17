@@ -1,0 +1,23 @@
+asc_robot_controller:
+  # Publish all joint states -----------------------------------
+  joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 50
+
+  # Position Controllers --------------------------------------
+  left_rev_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: left_rev
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  right_rev_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: right_rev
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  pan_rev_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: pan_rev
+    pid: {p: 100.0, i: 0.01, d: 10.0}
+  tilt_rev_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: tilt_rev
+    pid: {p: 100.0, i: 0.01, d: 10.0}
