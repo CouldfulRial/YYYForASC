@@ -1,0 +1,48 @@
+<launch>
+
+	<!-- EXAMPLE OF DEFINING AN INPUT ARGUMENT -->
+	<arg name="alsopython" default="false" />
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+
+		<!-- LAUNCH A "Template C++" NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "template_cpp_node"
+			output = "screen"
+			type   = "template_cpp_node"
+		/>
+
+		<!-- LAUNCH A "Template C++ Minimal" NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "template_cpp_node_minimal"
+			output = "screen"
+			type   = "template_cpp_node_minimal"
+		/>
+
+		<!-- USE THE INPUT ARGUMENT IN AN IF-STATEMENT  -->
+		<group if="$(arg alsopython)">
+
+			<!-- LAUNCH A "Template Python" NODE -->
+			<node
+				pkg    = "asclinic_pkg"
+				name   = "template_py_node"
+				output = "screen"
+				type   = "template_py_node.py"
+			/>
+
+			<!-- LAUNCH A "Template Python Minimal" NODE -->
+			<node
+				pkg    = "asclinic_pkg"
+				name   = "template_py_node_minimal"
+				output = "screen"
+				type   = "template_py_node_minimal.py"
+			/>
+
+		</group>
+
+	</group>
+
+</launch>

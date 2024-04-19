@@ -1,0 +1,61 @@
+<launch>
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+
+		<!-- LAUNCH A "Camera Capture" NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "camera_capture"
+			output = "screen"
+			type   = "camera_capture.py"
+			>
+			<param
+				name   = "camera_capture_verbosity"
+				value  = "1"
+			/>
+			<param
+				name   = "camera_capture_usb_camera_device_number"
+				value  = "0"
+			/>
+			<param
+				name   = "camera_capture_desired_camera_frame_height"
+				value  = "1080"
+			/>
+			<param
+				name   = "camera_capture_desired_camera_frame_width"
+				value  = "1920"
+			/>
+			<param
+				name   = "camera_capture_desired_camera_fps"
+				value  = "5"
+			/>
+			<param
+				name   = "camera_capture_chessboard_size_height"
+				value  = "9"
+			/>
+			<param
+				name   = "camera_capture_chessboard_size_width"
+				value  = "6"
+			/>
+			<param
+				name   = "camera_capture_save_image_path"
+				value  = "/home/asc/saved_camera_images/"
+			/>
+			<param
+				name   = "camera_capture_should_save_all_chessboard_images"
+				value  = "True"
+			/>
+			<param
+				name   = "camera_capture_should_publish_camera_images"
+				value  = "True"
+			/>
+			<param
+				name   = "camera_capture_should_show_camera_images"
+				value  = "False"
+			/>
+		</node>
+
+	</group>
+
+</launch>

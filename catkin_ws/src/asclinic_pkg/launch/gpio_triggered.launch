@@ -1,0 +1,25 @@
+<launch>
+
+	<!-- NOTE -->
+	<!-- Two nodes canNOT access the same GPIO line -->
+	<!-- The first node to open a line blocks other processes from accessing it -->
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+
+		<!-- LAUNCH A "Template GPIO Event Triggered" NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "template_gpio_event_triggered"
+			output = "screen"
+			type   = "template_gpio_event_triggered"
+			>
+			<param
+				name   = "line_number"
+				value  = "148"
+			/>
+		</node>
+
+	</group>
+
+</launch>

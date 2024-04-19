@@ -1,0 +1,55 @@
+<launch>
+
+	<!-- ADD AN ARGUMENT FOR EMULATION -->
+	<arg name="emulate_i2c" default="false" />
+
+	<!-- LAUNCH A ROS BRIDGE NODE -->
+	<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" >
+		<arg name="port" value="8080"/>
+	</include>
+
+	<!-- LAUNCH A RPLIDAR NODE -->
+	<!-- Note: for model A1/A2 use baudrate 115200 -->
+	<!--       for model A3    use baudrate 256000 -->
+	<node
+		pkg    = "rplidar_ros"
+		name   = "rplidarNode"
+		output = "screen"
+		type   = "rplidarNode"
+		>
+		<param name="serial_port" type="string" value="/dev/rplidar"/>
+		<param name="serial_baudrate" type="int" value="115200"/>
+		<param name="frame_id" type="string" value="laser"/>
+		<param name="inverted" type="bool" value="false"/>
+		<param name="angle_compensate" type="bool" value="true"/>
+	</node>
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+		<!-- LAUNCH A "I2C for Motors and Servos" NODE -->
+		<group unless="$(arg emulate_i2c)">
+			<node
+				pkg    = "asclinic_pkg"
+				name   = "i2c_for_motors_and_servos"
+				output = "screen"
+				type   = "i2c_for_motors_and_servos"
+			/>
+		</group>
+		<!-- LAUNCH AN "Emulate I2C for Motors" NODE -->
+		<group if="$(arg emulate_i2c)">
+			<node
+				pkg    = "asclinic_pkg"
+				name   = "emulate_i2c_for_motors"
+				output = "screen"
+				type   = "emulate_i2c_for_motors"
+			/>
+		</group>
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "web_interface_connector"
+			output = "screen"
+			type   = "web_interface_connector"
+		/>
+	</group>
+
+</launch>

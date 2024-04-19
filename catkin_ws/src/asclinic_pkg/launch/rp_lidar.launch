@@ -1,0 +1,19 @@
+<launch>
+
+	<!-- LAUNCH A RPLIDAR NODE -->
+	<!-- Note: for model A1/A2 use baudrate 115200 -->
+	<!--       for model A3    use baudrate 256000 -->
+	<node
+		pkg    = "rplidar_ros"
+		name   = "rplidarNode"
+		output = "screen"
+		type   = "rplidarNode"
+		>
+		<param name="serial_port" type="string" value="/dev/rplidar"/>
+		<param name="serial_baudrate" type="int" value="115200"/>
+		<param name="frame_id" type="string" value="laser"/>
+		<param name="inverted" type="bool" value="false"/>
+		<param name="angle_compensate" type="bool" value="true"/>
+	</node>
+
+</launch>

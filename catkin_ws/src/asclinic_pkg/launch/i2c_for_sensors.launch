@@ -1,0 +1,16 @@
+<launch>
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+
+		<!-- LAUNCH A "I2C for Sensors" NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "i2c_for_sensors"
+			output = "screen"
+			type   = "i2c_for_sensors"
+		/>
+
+	</group>
+
+</launch>

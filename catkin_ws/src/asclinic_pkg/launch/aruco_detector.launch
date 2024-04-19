@@ -1,0 +1,57 @@
+<launch>
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+
+		<!-- LAUNCH A "Aruco Detector" NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "aruco_detector"
+			output = "screen"
+			type   = "aruco_detector.py"
+			>
+			<param
+				name   = "aruco_detector_verbosity"
+				value  = "1"
+			/>
+			<param
+				name   = "aruco_detector_usb_camera_device_number"
+				value  = "0"
+			/>
+			<param
+				name   = "aruco_detector_desired_camera_frame_height"
+				value  = "1080"
+			/>
+			<param
+				name   = "aruco_detector_desired_camera_frame_width"
+				value  = "1920"
+			/>
+			<param
+				name   = "aruco_detector_desired_camera_fps"
+				value  = "5"
+			/>
+			<param
+				name   = "aruco_detector_marker_size"
+				value  = "0.250"
+			/>
+			<param
+				name   = "aruco_detector_save_image_path"
+				value  = "/home/asc/saved_camera_images/"
+			/>
+			<param
+				name   = "aruco_detector_should_save_all_aruco_images"
+				value  = "False"
+			/>
+			<param
+				name   = "aruco_detector_should_publish_camera_images"
+				value  = "True"
+			/>
+			<param
+				name   = "aruco_detector_should_show_camera_images"
+				value  = "False"
+			/>
+		</node>
+
+	</group>
+
+</launch>

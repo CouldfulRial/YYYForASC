@@ -1,0 +1,33 @@
+<launch>
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns="asc">
+
+		<!-- LAUNCH A "Control Policy Skeleton" PYTHON NODE -->
+		<node
+			pkg    = "asclinic_pkg"
+			name   = "control_policy_skeleton"
+			output = "screen"
+			type   = "control_policy_skeleton.py"
+			>
+			<param
+				name   = "control_policy_verbosity"
+				value  = "1"
+			/>
+			<param
+				name   = "robot_wheel_base"
+				value  = "0.22"
+			/>
+			<param
+				name   = "robot_wheel_radius"
+				value  = "0.072"
+			/>
+			<param
+				name   = "encoder_counts_per_wheel_revolution"
+				value  = "1680"
+			/>
+		</node>
+
+	</group>
+
+</launch>
