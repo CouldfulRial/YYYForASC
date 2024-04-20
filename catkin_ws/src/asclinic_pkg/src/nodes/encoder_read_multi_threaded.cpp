@@ -139,7 +139,7 @@ void timerCallbackForPublishing(const ros::TimerEvent&)
 
 	// Display the counts
 	if (m_encoder_read_verbosity >= 2)
-		ROS_INFO_STREAM("[ENCODER READ MULTI THREADED] Published (seq_num,left,right) = ( " << std::setw(5) << msg.seq_num << " , " << std::setw(5) << msg.left << " , " << std::setw(5) << msg.right << " )");
+		ROS_INFO_STREAM("[ENCODER READ MULTI THREADED] Published (seq_num,left,right) = ( " << std::setw(5) << msg.seq_num << " , " << std::setw(5) << msg.right << " , " << std::setw(5) << msg.left << " )");
 }
 
 

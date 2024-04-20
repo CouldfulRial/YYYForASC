@@ -16,7 +16,7 @@
 			>
 			<param
 				name   = "encoder_read_verbosity"
-				value  = "1"
+				value  = "2"
 			/>
 			<param
 				name   = "gpio_chip_number_for_encoder_lines"
