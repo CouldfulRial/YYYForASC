@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
+  nav_msgs
   sensor_msgs
   cv_bridge
   genmsg
@@ -134,7 +135,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  src/drivers/src/
+  src/
   #include/nodes
   ${catkin_INCLUDE_DIRS}
 )
@@ -191,6 +192,7 @@ catkin_install_python(PROGRAMS
   src/nodes/rotate_by_angle.py
   src/nodes/get_average_count.py
   src/nodes/rotate_by_time.py
+  src/nodes/wheel_odometry.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
