@@ -6,7 +6,7 @@ Subscribed topics:
     /asc/current_motor_duty_cycle  ==> for wheel direction
     /asc/measured_wheel_speeds     ==> for wheel speeds
 Published topics:
-    /odom                          ==> for the odometry
+    /asc/odom                      ==> for the odometry
 '''
 from math import sin, cos, pi
 
