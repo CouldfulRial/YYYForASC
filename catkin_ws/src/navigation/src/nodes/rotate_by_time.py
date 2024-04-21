@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from navigation.msg import LRFloat32, LRInt32
+from asclinic_pkg import LeftRightInt32, LeftRightFloat32
 import csv
 import os
 
@@ -40,11 +40,11 @@ class RotateByTime:
 
         # Subscribers
         # This subscriber will listen to the encoder_counts topic, in order to count the accumulated encoder counts
-        self.sub_ec = rospy.Subscriber('encoder_counts', LRInt32, self.encoder_callback)
+        self.sub_ec = rospy.Subscriber('encoder_counts', LeftRightInt32, self.encoder_callback)
 
         # Publisher
         # This publisher will publish the duty cycle to the i2c_for_motor node
-        self.pub_dc = rospy.Publisher('set_motor_duty_cycle', LRFloat32, queue_size=10)
+        self.pub_dc = rospy.Publisher('set_motor_duty_cycle', LeftRightFloat32, queue_size=10)
         
         # Initialize sequence size, increment
         self.seq_size = 0
@@ -52,7 +52,7 @@ class RotateByTime:
 
     def encoder_callback(self, data):
         # initialise publishing
-        set_dc = LRFloat32()
+        set_dc = LeftRightFloat32()
         set_dc.left = DUTY_CYCLE if self.wheel == 'left' else 0
         set_dc.right = DUTY_CYCLE if self.wheel == 'right' else 0
 
