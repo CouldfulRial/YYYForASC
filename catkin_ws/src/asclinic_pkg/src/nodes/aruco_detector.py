@@ -73,7 +73,8 @@ import cv2
 # Package to convert between ROS and OpenCV Images
 from cv_bridge import CvBridge, CvBridgeError
 
-
+# Import csv
+import csv
 
 # DEFINE THE PARAMETERS
 # > For the verbosity level of displaying info
@@ -90,7 +91,7 @@ DEFAULT_USB_CAMERA_DEVICE_NUMBER = 0
 # > Properties of the camera images captured
 DEFAULT_DESIRED_CAMERA_FRAME_HEIGHT = 1080
 DEFAULT_DESIRED_CAMERA_FRAME_WIDTH = 1920
-DEFAULT_DESIRED_CAMERA_FPS = 5
+DEFAULT_DESIRED_CAMERA_FPS = 10
 
 # > For the size of the aruco marker
 DEFAULT_MARKER_SIZE = 0.250
@@ -208,6 +209,11 @@ class ArucoDetector:
         # Initialise variables for managing the saving of an image
         self.save_image_counter = 0
         self.should_save_image = False
+
+        # Initialise aruco_data.csv
+        self.csv_file = open('/home/asc/aruco_data.csv', 'w')
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(['frame_id', 'marker_id', 'tvec', 'rvec', 'Rmat'])
 
         # Specify the details for camera to capture from
 
@@ -328,8 +334,8 @@ class ArucoDetector:
         #   saved during the calibration procedure.
         # > Note the that values hardcoded here may give
         #   meaningless results for your camera
-        self.intrinic_camera_matrix = np.array( [[1431.18,0,994.928] , [0,1432.83,541.449] , [0,0,1]], dtype=float)
-        self.intrinic_camera_distortion  = np.array( [[ 0.06855e-02, -3.603e-01, 4.304e-04, -3.662e-03, 5.415e-01]], dtype=float)
+        self.intrinic_camera_matrix = np.array( [[1367.60714,0,914.90439] , [0,1364.73360,574.61368] , [0,0,1]], dtype=float)
+        self.intrinic_camera_distortion  = np.array( [[ 7.314e-02, -8.678e-01, 5.13e-03, -1.159e-02, 0]], dtype=float)
 
         # Read the a camera frame as a double check of the properties
         # > Read the frame
@@ -361,7 +367,8 @@ class ArucoDetector:
         # Initialise a timer for capturing the camera frames
         rospy.Timer(rospy.Duration(1/self.camera_fps), self.timerCallbackForCameraRead)
 
-
+    def __del__(self):
+        self.csv_file.close()
 
     # Respond to timer callback
     def timerCallbackForCameraRead(self, event):
@@ -440,6 +447,7 @@ class ArucoDetector:
                     #rvec = this_rvec_estimate[0]
                     #tvec = this_tvec_estimate[0]
 
+
                     # Draw the marker's axes onto the image
                     # > Only if this image will be used
                     if (self.should_publish_camera_images or self.should_save_image or self.should_show_camera_images):
@@ -456,14 +464,18 @@ class ArucoDetector:
 
                     # A vector expressed in the maker frame coordinates can now be
                     # rotated to the camera frame coordinates as:
-                    # Rmat = cv2.Rodrigues(rvec)
-                    # [x,y,z]_{in camera frame} = tvec + Rmat * [x,y,z]_{in marker frame}
+                    Rmat, _ = cv2.Rodrigues(rvec)
+                    #[x,y,z]_{in camera frame} = tvec + Rmat * [x,y,z]_{in marker frame}
+                    
+
 
                     # Note: the camera frame convention is:
                     # > z-axis points along the optical axis, i.e., straight out of the lens
                     # > x-axis points to the right when looking out of the lens along the z-axis
                     # > y-axis points to the down  when looking out of the lens along the z-axis
 
+                    self.csv_writer.writerow([self.camera_frame_sequence_number, this_id, tvec, rvec, Rmat])
+                   
                     # Display the rvec and tvec
                     if (self.aruco_detector_verbosity >= 2):
                         rospy.loginfo("[ARUCO DETECTOR] for id = " + str(this_id) + ", tvec = [ " + str(tvec[0]) + " , " + str(tvec[1]) + " , " + str(tvec[2]) + " ]" )
