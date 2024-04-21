@@ -54,11 +54,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   LRFloat32.msg
-#   LRInt32.msg
-# )
+add_message_files(
+  FILES
+  pose.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -192,6 +191,8 @@ catkin_install_python(PROGRAMS
   src/nodes/rotate_by_angle.py
   src/nodes/rotate_by_time.py
   src/nodes/wheel_odometry.py
+  src/nodes/motor_model.py
+  src/nodes/motor_controller.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

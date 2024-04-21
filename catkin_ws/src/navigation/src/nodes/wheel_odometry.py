@@ -4,7 +4,7 @@
 This node gives the estimation of the robot's position based on the wheel odometry.
 Subscribed topics:
     /asc/current_motor_duty_cycle  ==> for wheel direction
-    /asc/encoder_counts            ==> for encoder counts
+    /asc/measured_wheel_speeds     ==> for wheel speeds
 Published topics:
     /odom                          ==> for the odometry
 '''
@@ -13,7 +13,7 @@ from math import sin, cos, pi
 import rospy
 import tf
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
+from geometry_msgs.msg import Point, Quaternion
 from tf.transformations import quaternion_from_euler
 
 # Subscriber messages
@@ -33,8 +33,7 @@ class WheelOdom:
         rospy.init_node('wheel_odometry', anonymous=True)
 
         # Initialise the subscribers
-        self.sub_encoder = rospy.Subscriber('/asc/encoder_counts', LeftRightInt32, self.update_encoder_callback)
-        self.sub_dir = rospy.Subscriber('/asc/current_motor_duty_cycle', LeftRightFloat32, self.update_dir_callback)
+        self.sub_speeds = rospy.Subscriber('measured_wheel_speeds', LeftRightFloat32, self.update_speeds_callback)
 
         # Initialise the publisher and tf broadcaster
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=50)  # idk why 50 here, but every single example uses 50
@@ -50,10 +49,11 @@ class WheelOdom:
         self.current_time = rospy.Time.now()
         self.last_logged_time = rospy.Time.now()
 
-    def update_encoder_callback(self, data):
+
+    def update_speeds_callback(self, data):
         # Update the encoder counts to delta theta for both wheels in radian
-        delta_theta_l = self.left_dir * data.left * RADIAN_PER_COUNT
-        delta_theta_r = self.right_dir * data.right * RADIAN_PER_COUNT
+        delta_theta_l = data.left
+        delta_theta_r = data.right
 
         # Map to:
         #   forward movement in the body frame (delta_s) (drive: v)
@@ -80,28 +80,16 @@ class WheelOdom:
         self.publish_odom()
 
         # Logging at a slower rate
-        if self.current_time - self.last_logged_time >= 2.0:  # Check if 1 second has passed
+        # if self.current_time - self.last_logged_time >= rospy.Duration(2.0):
             #Display in the console
             # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, left count: {data.left}, right count: {data.right}")
             # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, delta_theta_l: {delta_theta_l:.2f}, delta_theta_r: {delta_theta_r:.2f}")
             # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, v: {v:.2f}, omega: {omega:.2f}")
             # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, delta_x_p: {delta_x_p:.2f}, delta_y_p: {delta_y_p:.2f}")
-            rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, x: {self.x:.2f}, y: {self.y:.2f}, psi: {self.psi:.2f}")
+        # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, x: {self.x:.2f}, y: {self.y:.2f}, psi: {self.psi:.2f}")
 
-            self.last_logged_time = self.current_time
+            # self.last_logged_time = self.current_time
 
-
-
-    def update_dir_callback(self, data):
-        # Update the directions
-        self.left_dir = 1 if data.left >= 0 else -1
-        self.right_dir = 1 if data.right >= 0 else -1
-
-        left_dir = "forward" if self.left_dir == 1 else "backward"
-        right_dir = "forward" if self.right_dir == 1 else "backward"
-
-        # Display in the console
-        rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, left: {left_dir}, right: {right_dir}")
 
     def publish_odom(self):
         # Create the odometry message
@@ -121,6 +109,7 @@ class WheelOdom:
 
         # Publish the odometry message
         self.odom_pub.publish(odom_msg)
+
 
     def publish_odom_tf(self):
         # Create the transform broadcaster
