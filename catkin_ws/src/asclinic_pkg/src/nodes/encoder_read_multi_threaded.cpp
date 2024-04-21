@@ -129,8 +129,8 @@ void timerCallbackForPublishing(const ros::TimerEvent&)
 
 	// Publish a message
 	asclinic_pkg::LeftRightInt32 msg;
-	msg.left  = counts_left_a_local_copy  + counts_left_b_local_copy;
-	msg.right = counts_right_a_local_copy + counts_right_b_local_copy;
+	msg.right  = counts_left_a_local_copy  + counts_left_b_local_copy;
+	msg.left = counts_right_a_local_copy + counts_right_b_local_copy;
 	msg.seq_num = s_sequence_number_for_msgs;
 	m_encoder_counts_publisher.publish(msg);
 
