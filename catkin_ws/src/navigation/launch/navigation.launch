@@ -1,0 +1,16 @@
+<launch>
+    <!-- This launch file launchs the wheel odometry, the encoder and the motor driver -->
+    <!-- Wheel Odometry-->
+    <node 
+        pkg="navigation" 
+        type="wheel_odometry" 
+        name="wheel_odometry" 
+        output="screen">
+    </node>
+
+    <!-- Encoder -->
+    <include file="$(find asclinc_pkg)/launch/encoder.launch">
+
+    <!-- Motor driver -->
+    <include file="$(find asclinc_pkg)/launch/i2c_for_motors.launch"/>
+</launch>
