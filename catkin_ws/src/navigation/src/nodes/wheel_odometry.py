@@ -70,7 +70,7 @@ class WheelOdom:
         self.x += delta_x_p
         self.y += delta_y_p
         self.psi += delta_psi
-        self.psi %= 2 * pi  # keep psi within 0, 2pi
+        # self.psi %= 2 * pi  # keep psi within 0, 2pi
 
         # Get current time
         self.current_time = rospy.Time.now()

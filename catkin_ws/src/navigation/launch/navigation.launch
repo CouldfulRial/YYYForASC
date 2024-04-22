@@ -1,5 +1,10 @@
 <launch>
     <!-- This launch file launchs the wheel odometry, the encoder and the motor driver -->
+	<!-- list of arguments that can be given as inputs of the launch file -->
+    <arg name="motor_controller_verbosity"  default="0" />
+	<arg name="motion_controller_verbosity" default="0" />
+	<arg name="motor_controller_plot"       default="0" />
+	<arg name="motion_controller_plot"      default="0" />
 
 	<!-- START A GROUP WITH A NAMESPACE -->
 	<group ns="asc">
@@ -66,6 +71,20 @@
 		type="motor_controller.py" 
 		name="motor_controller" 
 		output="screen">
+
+		<param name = "verbosity" type="int" value = "0" />
+		<param name = "plot"      type="int" value = "0" />
+	</node>
+
+	<!-- Motion Controller -->
+	<node 
+		pkg="navigation" 
+		type="motion_controller.py" 
+		name="motion_controller" 
+		output="screen">
+
+		<param name = "verbosity" type="int" value = "1" />
+		<param name = "plot"      type="int" value = "1" />
 	</node>
 
 </launch>
