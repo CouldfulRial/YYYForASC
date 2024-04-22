@@ -83,8 +83,16 @@
 		name="motion_controller" 
 		output="screen">
 
-		<param name = "verbosity" type="int" value = "1" />
-		<param name = "plot"      type="int" value = "1" />
+		<param name = "verbosity" type="int" value = "0" />
+		<param name = "plot"      type="int" value = "0" />
+	</node>
+
+	<!-- Task-level Controller -->
+	<node 
+		pkg="navigation" 
+		type="task_level_controller.py" 
+		name="task_level_controller" 
+		output="screen">
 	</node>
 
 </launch>

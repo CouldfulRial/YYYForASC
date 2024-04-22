@@ -101,7 +101,7 @@ class WheelOdom:
         # Set the position in the odometry message
         odom_msg.pose.pose.position = Point(self.x, self.y, 0)
         odom_quat = quaternion_from_euler(0, 0, self.psi)
-        odom_msg.pose.pose.orientation = Quaternion(*odom_quat)  # * is used to unpack the tuple
+        odom_msg.pose.pose.orientation = Quaternion(0, 0, self.psi, 0)  # * is used to unpack the tuple
 
         # Set the velocity in the odometry message
         odom_msg.twist.twist.linear.x = self.v

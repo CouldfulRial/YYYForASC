@@ -10,7 +10,7 @@ Published topics:
 '''
 
 import rospy
-from math import pi, sin, cos, atan2
+from math import pi, sin, cos
 import tf.transformations
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose2D
@@ -28,7 +28,7 @@ EPSILON = 0.0000001
 class MotionController:
     def __init__(self):
         # Get user parameter
-        self.verbosity = rospy.get_param('~verbosity', 1)
+        self.verbosity = rospy.get_param('~verbosity', 0)
         self.plot = rospy.get_param('~plot', 1)
 
         rospy.init_node('motion_controller', anonymous=True)
@@ -36,6 +36,7 @@ class MotionController:
         # Subscriber to the Odometry messages
         # odom is publishing at 10Hz
         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
+        self.pos_sub = rospy.Subscriber('ref_pose', Pose2D, self.pose_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
@@ -44,7 +45,7 @@ class MotionController:
         self.speed_pub = rospy.Publisher('reference_wheel_speeds', LeftRightFloat32, queue_size=10)
 
         # Desired pose, later will be topic
-        self.desired_pose = Pose2D(x=0, y=0, theta=3*pi/2)
+        # self.desired_pose = Pose2D(x=0, y=0, theta=3*pi/2)
 
         # Register the shutdown callback ==> plot
         rospy.on_shutdown(self.shutdown_callback)
@@ -59,7 +60,10 @@ class MotionController:
         # Initialise positions
         self.current_pose_x = 0
         self.current_pose_y = 0
-        self.current_orientation = None
+        self.current_theta  = 0
+
+        # Initialise desired pose
+        self.desired_pose = Pose2D(0, 0, 0)
 
         # Controller gains
         # Position
@@ -76,9 +80,6 @@ class MotionController:
         self.integral_etheta = 0
 
     def timer_callback(self, event):
-        # Convert quaternion to Euler angles (assuming a function quat_to_euler exists)
-        self.current_theta = self.quat_to_euler(self.current_orientation)
-
         # Store the current pose
         if self.plot == 1:
             self.current_pose_x_list.append(self.current_pose_x)
@@ -103,7 +104,7 @@ class MotionController:
         right_speed = (v + omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
 
         # Add saturation to both wheels
-        SPEED_LIMIT = 0.3
+        SPEED_LIMIT = 0.25
         if left_speed > SPEED_LIMIT:
             left_speed = SPEED_LIMIT
         elif left_speed < -SPEED_LIMIT:
@@ -130,7 +131,14 @@ class MotionController:
         # Extract the current pose from the odometry message
         self.current_pose_x = data.pose.pose.position.x
         self.current_pose_y = data.pose.pose.position.y
-        self.current_orientation = data.pose.pose.orientation
+        self.current_theta = data.pose.pose.orientation.z
+        # self.current_theta = self.quat_to_euler(current_orientation)
+        # map to [0, 2pi]
+        # if self.current_theta < 0:
+        #     self.current_theta += 2 * pi
+
+    def pose_callback(self, data):
+        self.desired_pose = data
 
     @staticmethod
     def quat_to_euler(quat):
@@ -158,9 +166,9 @@ class MotionController:
     
     def shutdown_callback(self):
         if self.plot == 1:
-            self.plot()
+            self.plot_callback()
 
-    def plot(self):
+    def plot_callback(self):
         rospy.loginfo(f"Plotting")
         plt.plot(self.current_pose_x_list, label="current_x")
         plt.plot(self.current_pose_y_list, label="current_y")
