@@ -21,8 +21,8 @@ T_u = 20 / 3.0
 class MotorController:
     def __init__(self):
         # Get user parameter
-        self.verbosity = rospy.get_param('~verbosity', 0)
-        self.plot = rospy.get_param('~plot', 0)
+        self.verbosity = rospy.get_param('~verbosity', 'default_value')
+        self.plot      = rospy.get_param('~plot', 'default_value')
 
         rospy.init_node('motor_controller')
 

@@ -10,7 +10,7 @@ Published topics:
 '''
 
 import rospy
-from math import pi, sin, cos
+from math import pi, sin, cos, sqrt, atan2
 import tf.transformations
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose2D
@@ -23,13 +23,13 @@ WHEEL_RADIUS = WHEEL_DIAMETER / 2
 WHEEL_BASE = 0.218  # m
 HALF_WHEEL_BASE = WHEEL_BASE / 2
 
-EPSILON = 0.0000001
 
 class MotionController:
     def __init__(self):
         # Get user parameter
-        self.verbosity = rospy.get_param('~verbosity', 0)
-        self.plot = rospy.get_param('~plot', 1)
+        self.verbosity       = rospy.get_param('~verbosity', 'default_value')
+        self.plot            = rospy.get_param('~plot', 'default_value')
+        self.controller_type = rospy.get_param('~controller_type', 'default_value')
 
         rospy.init_node('motion_controller', anonymous=True)
 
@@ -65,19 +65,6 @@ class MotionController:
         # Initialise desired pose
         self.desired_pose = Pose2D(0, 0, 0)
 
-        # Controller gains
-        # Position
-        self.Kp_pos = 0.03
-        self.Ki_pos = 0
-
-        # Angular
-        self.Kp_ang = 0.03
-        self.Ki_ang = 0
-
-        # Initialise controller integrals
-        self.integral_ex_robot = 0
-        self.integral_ey_robot = 0
-        self.integral_etheta = 0
 
     def timer_callback(self, event):
         # Store the current pose
@@ -90,17 +77,18 @@ class MotionController:
             self.desired_theta__list.append(self.desired_pose.theta)
 
         # Compute pose error
-        error_x = self.desired_pose.x - self.current_pose_x
-        error_y = self.desired_pose.y - self.current_pose_y
+        error_x     = self.desired_pose.x     - self.current_pose_x
+        error_y     = self.desired_pose.y     - self.current_pose_y
         error_theta = self.desired_pose.theta - self.current_theta
 
         # Compute control signals
         # Simple proportional controller for demonstration
-        v, omega = self.control_Twist(error_x, error_y, error_theta, self.current_theta)
+        controller = self.controller1 if self.controller_type == 1 else self.controller2  # Choose controller
+        v, omega = controller(error_x, error_y, error_theta, self.current_theta)
 
         # Assuming a differential drive robot
         # Convert from linear and angular velocity to wheel speeds
-        left_speed = (v - omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
+        left_speed  = (v - omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
         right_speed = (v + omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
 
         # Add saturation to both wheels
@@ -120,7 +108,6 @@ class MotionController:
                         f"\ndesired_pose_x: {self.desired_pose.x:3.2f},    desired_pose_y: {self.desired_pose.y:3.2f}, desired_theta: {self.desired_pose.theta:3.2f}" + 
                         f"\ncurrent_pose_x: {self.current_pose_x:3.2f},    current_pose_y: {self.current_pose_y:3.2f}, current_theta: {self.current_theta:3.2f}" + 
                         f"\nex_robot:       {self.ex_robot:3.2f},          ey_robot: {self.ey_robot:3.2f},             error_theta: {error_theta:3.2f}" +
-                        f"\nintegral_ex:    {self.integral_ex_robot:3.2f}, integral_ey: {self.integral_ey_robot:3.2f}, integral_etheta: {self.integral_etheta:3.2f}" + 
                         f"\nv:              {v:3.2f},                      omega: {omega:3.2f}" +
                         f"\nleft_speed:     {left_speed:3.2f},             right_speed: {right_speed:3.2f}")
 
@@ -131,8 +118,8 @@ class MotionController:
         # Extract the current pose from the odometry message
         self.current_pose_x = data.pose.pose.position.x
         self.current_pose_y = data.pose.pose.position.y
-        self.current_theta = data.pose.pose.orientation.z
-        # self.current_theta = self.quat_to_euler(current_orientation)
+        self.current_theta  = data.pose.pose.orientation
+        self.current_theta = self.quat_to_euler(self.current_theta)
         # map to [0, 2pi]
         # if self.current_theta < 0:
         #     self.current_theta += 2 * pi
@@ -148,21 +135,70 @@ class MotionController:
         else:
             return 0  # If intialised to None, return 0
 
-    def control_Twist(self, ex, ey, etheta, theta):
+    def controller1(self, ex, ey, etheta, theta):
+        '''
+        This is a simple implementation of a P(I) controller
+        '''
+        # Controller parameters
+        # Gains
+        # Position
+        Kp_pos = 0.03
+        Ki_pos = 0
+
+        # Angular
+        Kp_ang = 0.03
+        Ki_ang = 0
+
+        # Initialise controller integrals
+        integral_ex_robot = 0
+        integral_ey_robot = 0
+        integral_etheta   = 0
+
         # v     = ex / (2 * cos(theta) + EPSILON) + ey / (2 * sin(theta) + EPSILON)
         # omega = etheta
-        self.ex_robot = ex * cos(theta) + ey * sin(theta)
+        self.ex_robot = ex  * cos(theta) + ey * sin(theta)
         self.ey_robot = -ex * sin(theta) + ey * cos(theta)
 
         # I
-        self.integral_ex_robot += self.ex_robot
-        self.integral_ey_robot += self.ey_robot
-        self.integral_etheta += etheta
+        integral_ex_robot += self.ex_robot
+        integral_ey_robot += self.ey_robot
+        integral_etheta += etheta
 
-        v = self.Kp_pos * self.ex_robot + self.Ki_pos * self.integral_ex_robot
-        omega = self.Kp_ang * etheta + self.Ki_ang * self.integral_etheta
+        v     = Kp_pos * self.ex_robot + Ki_pos * integral_ex_robot
+        omega = Kp_ang * etheta        + Ki_ang * integral_etheta
 
         return v, omega
+    
+    def controller2(self, ex, ey, etheta, theta):
+        '''
+        This implementation is based on the website:
+        https://www.bilibili.com/video/BV19C4y1U7TE/?share_source=copy_web&vd_source=53bbd60e60dc232b7e76c75b2d1024c5
+        '''
+        # Controller parameters
+        # Gains
+        k_rho   = 0.03
+        k_alpha = 0.08
+        k_beta  = 0.015
+
+        # Map from global to robot frame in polar coordinates
+        rho = sqrt(ex**2 + ey**2)  # The linear distance to the goal
+        beta = atan2(ey, ex)  #  The angle between the goal theta and the current position of the robot. If this does not work, try beta = etheta
+        alpha = beta - theta  # Intended angle between the robot and the direction of rho
+
+        # Orientation considerations
+        # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
+        if alpha > -pi / 2 and alpha < pi / 2:
+            # We define that the robot is facing the goal
+            v = k_rho * rho
+            omega = k_alpha * alpha + k_beta * beta
+        else:
+            # The robot is facing the opposite direction
+            v = -k_rho * rho
+            omega = -k_alpha * alpha - k_beta * beta
+
+        return v, omega
+            
+
     
     def shutdown_callback(self):
         if self.plot == 1:

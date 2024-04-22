@@ -5,6 +5,7 @@
 	<arg name="motion_controller_verbosity" default="0" />
 	<arg name="motor_controller_plot"       default="0" />
 	<arg name="motion_controller_plot"      default="0" />
+	<arg name="controller_type"             default="1" />
 
 	<!-- START A GROUP WITH A NAMESPACE -->
 	<group ns="asc">
@@ -72,8 +73,8 @@
 		name="motor_controller" 
 		output="screen">
 
-		<param name = "verbosity" type="int" value = "0" />
-		<param name = "plot"      type="int" value = "0" />
+		<param name = "verbosity" type="int" value = "$(arg motor_controller_verbosity)" />
+		<param name = "plot"      type="int" value = "$(arg motor_controller_plot)" />
 	</node>
 
 	<!-- Motion Controller -->
@@ -83,8 +84,8 @@
 		name="motion_controller" 
 		output="screen">
 
-		<param name = "verbosity" type="int" value = "0" />
-		<param name = "plot"      type="int" value = "0" />
+		<param name = "verbosity" type="int" value = "$(arg motion_controller_verbosity)" />
+		<param name = "plot"      type="int" value = "$(arg mmotion_controller_plot)" />
 	</node>
 
 	<!-- Task-level Controller -->

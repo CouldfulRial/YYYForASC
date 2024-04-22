@@ -24,8 +24,8 @@ class TaskLevelController:
         # Subscribed topics
         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
 
-        # Timer: Calls the timer_callback function at 10 Hz
-        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
+        # Timer: Calls the timer_callback function at 1 Hz
+        self.timer = rospy.Timer(rospy.Duration(1), self.timer_callback)
 
         # Published topics:
         self.pos_pub = rospy.Publisher('ref_pose', Pose2D, queue_size=10)
@@ -41,18 +41,6 @@ class TaskLevelController:
         self.state = "MOVE_FORWARD"
 
     def timer_callback(self, event):
-        pass
-
-    def odom_callback(self, data):
-        # Extract the current pose from the odometry message
-        self.current_pose_x = data.pose.pose.position.x
-        self.current_pose_y = data.pose.pose.position.y
-        self.current_theta = data.pose.pose.orientation.z
-        # self.current_theta = self.quat_to_euler(current_orientation)
-        # map to [0, 2pi]
-        # if self.current_theta < 0:
-        #     self.current_theta += 2 * pi
-
         # State transition logic
         if self.state == "MOVE_FORWARD" and self.reached_target(3, 0, 0):
             self.state = "TURN_AROUND"
@@ -84,6 +72,16 @@ class TaskLevelController:
         rospy.loginfo("-"*25 + "FSM" + "-"*25 + 
                       f"\nState: {self.state}" + 
                       f"\ntarger pose: {self.target.x:3.2f}, {self.target.y:3.2f}, {self.target.theta:3.2f},")
+
+    def odom_callback(self, data):
+        # Extract the current pose from the odometry message
+        self.current_pose_x = data.pose.pose.position.x
+        self.current_pose_y = data.pose.pose.position.y
+        self.current_theta = data.pose.pose.orientation
+        self.current_theta = self.quat_to_euler(self.current_theta)
+        # map to [0, 2pi]
+        # if self.current_theta < 0:
+        #     self.current_theta += 2 * pi
 
     @staticmethod
     def quat_to_euler(quat):
