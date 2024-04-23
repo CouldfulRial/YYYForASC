@@ -22,7 +22,7 @@ WHEEL_DIAMETER = 0.144  # m
 WHEEL_RADIUS = WHEEL_DIAMETER / 2
 WHEEL_BASE = 0.218  # m
 HALF_WHEEL_BASE = WHEEL_BASE / 2
-SPEED_LIMIT = 0.3
+SPEED_LIMIT = 0.1
 
 EPSILLON = 0.1
 
@@ -31,7 +31,7 @@ class MotionController:
         # Get user parameter
         self.verbosity       = rospy.get_param('~verbosity', 1)
         self.plot            = rospy.get_param('~plot', 1)
-        self.controller_type = rospy.get_param('~controller_type', 3)
+        self.controller_type = rospy.get_param('~controller_type', 2)
 
         rospy.init_node('motion_controller', anonymous=True)
 
@@ -95,13 +95,13 @@ class MotionController:
         # Compute pose error
         error_x     = self.desired_pose.x     - self.current_pose_x
         error_y     = self.desired_pose.y     - self.current_pose_y
-        error_theta = self.desired_pose.theta - self.current_theta
-        # error_theta = self.get_error_theta(self.desired_pose.theta, self.current_theta)
+        # error_theta = self.desired_pose.theta - self.current_theta
+        error_theta = self.get_error_theta(self.desired_pose.theta, self.current_theta)
 
         # Compute control signals
         # Simple proportional controller for demonstration
         # controller = self.controller1 if self.controller_type == 1 else self.controller2  # Choose controller
-        controller = self.controller3
+        controller = self.controller2
         v, omega = controller(error_x, error_y, error_theta, self.current_theta)
 
 
@@ -139,12 +139,8 @@ class MotionController:
         # Extract the current pose from the odometry message
         self.current_pose_x = data.pose.pose.position.x
         self.current_pose_y = data.pose.pose.position.y
-        self.current_theta  = data.pose.pose.orientation.z
-        # self.current_theta = self.quat_to_euler(self.current_theta)
-        # self.current_theta = self.normalise_angle(self.current_theta)
-        # map to [0, 2pi]
-        # if self.current_theta < 0:
-        #     self.current_theta += 2 * pi
+        self.current_theta  = data.pose.pose.orientation
+        self.current_theta = self.quat_to_euler(self.current_theta)
 
     def pose_callback(self, data):
         self.desired_pose = data
@@ -192,7 +188,7 @@ class MotionController:
         # Controller parameters
         # Gains
         k_rho   = 0.05
-        k_theta  = 0.1 #if self.rho < EPSILLON else 0
+        k_theta  = 0.05 #if self.rho < EPSILLON else 0
         # adjusting alpha is useless if too close to the goal
         k_alpha = 0.5 if self.rho > EPSILLON else 0
 
@@ -200,7 +196,7 @@ class MotionController:
         # The linear distance to the goal
         self.rho = sqrt(ex**2 + ey**2)  
         # The angle between the goal theta and the current position of the robot
-        self.beta = self.normalise_angle(atan2(ey, ex))
+        self.beta = atan2(ey, ex)
         # Intended angle between the robot and the direction of rho
         self.alpha = self.beta - theta
 
@@ -214,30 +210,6 @@ class MotionController:
             # The robot is facing the opposite direction
             v = -k_rho * self.rho
             omega = k_alpha * self.alpha + k_theta * etheta
-
-        return v, omega
-
-    def controller3(self, ex, ey, etheta, theta):
-        # Controller parameters
-        # Gains
-        # Position
-        Kp_x = 0.05
-
-        #Angular
-        Kp_ang_along = 1 if abs(ex) > EPSILLON else 0
-        Ki_ang_along = 0.1 if abs(ex) > EPSILLON else 0
-        Kp_ang_rot = 0.2 if abs(ex) < EPSILLON else 0
-
-        # Initialise controller integrals
-        integral_ang_along = 0
-
-        self.ex_robot = ex * cos(theta) + ey * sin(theta)
-
-        # I
-        integral_ang_along += ey
-
-        v     = Kp_x * self.ex_robot
-        omega = Kp_ang_rot * etheta + abs(Kp_ang_along * ey) + Ki_ang_along * integral_ang_along
 
         return v, omega
             
@@ -300,20 +272,18 @@ class MotionController:
         # Save the figure
         plt.savefig('/home/asc/YYYForASC/catkin_ws/src/navigation/src/data/plot.png', format='png', dpi=300)
 
-    def get_error_theta(self, desired_theta, current_theta):
-        # for any theta, it is the same if -2pi
-        desired_theta_neg = desired_theta - 2 * pi
-        error_theta_norm = abs(desired_theta - current_theta)
-        error_theta_neg_norm = abs(desired_theta_neg - current_theta)
-        if error_theta_neg_norm < error_theta_norm:
-            return desired_theta_neg
-        return desired_theta
-
     @staticmethod
-    def normalise_angle(angle):
-        if angle < 0:
-            angle += 2 * pi
-        return angle
+    def get_error_theta(desired_theta, current_theta):
+        # for any theta, it is the same if -2pi or 2pi
+        # We need two reference thetas, one in the positive and one in the negative direction
+        desired_theta_neg = desired_theta - 2 * pi if desired_theta > 0 else desired_theta
+        desired_theta_pos = desired_theta + 2 * pi if desired_theta < 0 else desired_theta
+        
+        # Always calculate the error based on the current theta negativity
+        error_theta = desired_theta_neg - current_theta if current_theta < 0 else desired_theta_pos - current_theta
+
+        return error_theta
+
 
 if __name__ == '__main__':
     try:
