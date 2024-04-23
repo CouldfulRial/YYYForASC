@@ -14,15 +14,20 @@ import tf.transformations
 from math import pi
 
 # Define hyperparameters
-ERROR_X = 0.2
-ERROR_Y = 0.2
-ERROR_ANGULAR = pi / 10
+ERROR_X = 0.05
+ERROR_Y = 0.05
+ERROR_ANGULAR = pi / 100
 
 # Path
 PATH = [
-    Pose2D(1, 1, pi/2),
-    Pose2D(1, 0, pi),
-    Pose2D(0, 0, pi)
+    Pose2D(0.5, 0, 0),
+    Pose2D(0.5, 0, pi/2),
+    Pose2D(0.5, 0.5, pi/2),
+    Pose2D(0.5, 0.5, pi),
+    Pose2D(0, 0.5, pi),
+    Pose2D(0, 0.5, -pi/2),
+    Pose2D(0, 0, -pi/2),
+    Pose2D(0, 0, 0)
 ]
 
 class TaskLevelController:

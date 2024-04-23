@@ -198,7 +198,7 @@ class MotionController:
         # The angle between the goal theta and the current position of the robot
         self.beta = atan2(ey, ex)
         # Intended angle between the robot and the direction of rho
-        self.alpha = self.beta - theta
+        self.alpha = self.get_error_theta(self.beta, theta)
 
         # Orientation considerations
         # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
@@ -242,7 +242,7 @@ class MotionController:
         plt.legend()
         ax1.grid(True)
 
-        ax2 = plt.subplot(2, 2, 2)
+        ax2 = plt.subplot(2, 2, 3)
         plt.plot(self.current_theta__list, label="current_theta")
         plt.plot(self.desired_theta__list, label="desired_theta")
         if self.controller_type == 2:
@@ -254,8 +254,9 @@ class MotionController:
         plt.legend()
         ax2.grid(True)
 
-        ax3 = plt.subplot(2, 2, 3)
+        ax3 = plt.subplot(2, 2, 4)
         plt.plot(self.current_pose_x_list, self.current_pose_y_list, label="robot_trajectory")
+        plt.plot(self.desired_pose_x_list, self.desired_pose_y_list, label="planned_trajectory")
         plt.xlabel('x')
         plt.ylabel('y')
         # plt.title("Trajectories")
