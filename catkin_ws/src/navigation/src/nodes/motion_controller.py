@@ -29,9 +29,9 @@ EPSILLON = 0.1
 class MotionController:
     def __init__(self):
         # Get user parameter
-        self.verbosity       = rospy.get_param('~verbosity', 1)
-        self.plot            = rospy.get_param('~plot', 1)
-        self.controller_type = rospy.get_param('~controller_type', 2)
+        self.verbosity       = rospy.get_param('~verbosity',       'default_value')
+        self.plot            = rospy.get_param('~plot',            'default_value')
+        self.controller_type = rospy.get_param('~controller_type', 'default_value')
 
         rospy.init_node('motion_controller', anonymous=True)
 

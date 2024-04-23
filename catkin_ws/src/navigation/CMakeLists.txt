@@ -196,6 +196,7 @@ catkin_install_python(PROGRAMS
   src/nodes/motion_controller.py
   src/nodes/task_level_controller.py
   src/nodes/stop_motors.py
+  src/nodes/twist_to_duty_cycle.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

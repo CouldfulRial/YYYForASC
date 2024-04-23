@@ -3,10 +3,10 @@
 '''
 This node controls the motors (inner controller)
 Subscribed topics:
-    measured_wheel_speeds     [asclinc_pkg/LeftRightFloat32]
-    reference_wheel_speeds    [asclinc_pkg/LeftRightFloat32]
+    measured_vel [geometry_msgs/Twist]
+    ref_vel      [geometry_msgs/Twist]
 Published topics:
-    /asc/set_motor_duty_cycle [asclinc_pkg/LeftRightFloat32]
+    cmd_vel      [geometry_msgs/Twist]
 '''
 
 import rospy

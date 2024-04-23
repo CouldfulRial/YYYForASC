@@ -2,12 +2,13 @@
     <!-- This launch file launchs the wheel odometry, the encoder and the motor driver -->
 	<!-- list of arguments that can be given as inputs of the launch file -->
     <arg name="motor_controller_verbosity"  default="0" />
-	<arg name="motion_controller_verbosity" default="1" />
-	<arg name="wheel_odom_verbosity"        default="1" />
+	<arg name="motion_controller_verbosity" default="0" />
+	<arg name="wheel_odom_verbosity"        default="0" />
+	<arg name="motor_model_verbosity"       default="1" />
 
 	<arg name="motor_controller_plot"       default="0" />
-	<arg name="motion_controller_plot"      default="1" />
-	<arg name="wheel_odom_plot"             default="1" />
+	<arg name="motion_controller_plot"      default="0" />
+	<arg name="wheel_odom_plot"             default="0" />
 	
 	<arg name="controller_type"             default="2" />
 
@@ -55,26 +56,27 @@
 	</group>
 
 	<!-- Wheel Odometry-->
-	<node 
-		pkg="navigation" 
-		type="wheel_odometry.py" 
-		name="wheel_odometry" 
-		output="screen">
-	</node>
-
-	<!-- Motor Model -->
-	<node 
-		pkg="navigation" 
-		type="motor_model.py" 
-		name="motor_model" 
-		output="screen">
+	<node pkg="navigation"  type="wheel_odometry.py"  name="wheel_odometry"  output="screen">
 
 		<param name = "verbosity" type="int" value = "$(arg wheel_odom_verbosity)" />
 		<param name = "plot"      type="int" value = "$(arg wheel_odom_plot)" />
 	</node>
 
-	<!-- Motor Controller -->
+	<!-- Motor Model -->
+	<node pkg="navigation"  type="motor_model.py"  name="motor_model"  output="screen">
+
+		<param name = "verbosity" value = "1" />
+	</node>
+
+	<!-- Twist to DC -->
 	<node 
+		pkg="navigation"  type="twist_to_duty_cycle.py"  name="twist_to_duty_cycle"  output="screen">
+
+		<param name = "verbosity" value = "0" />
+	</node>
+
+	<!-- Motor Controller -->
+	<!-- <node 
 		pkg="navigation" 
 		type="motor_controller.py" 
 		name="motor_controller" 
@@ -82,10 +84,10 @@
 
 		<param name = "verbosity" type="int" value = "$(arg motor_controller_verbosity)" />
 		<param name = "plot"      type="int" value = "$(arg motor_controller_plot)" />
-	</node>
+	</node> -->
 
 	<!-- Motion Controller -->
-	<node 
+	<!-- <node 
 		pkg="navigation" 
 		type="motion_controller.py" 
 		name="motion_controller" 
@@ -93,14 +95,14 @@
 
 		<param name = "verbosity" type="int" value = "$(arg motion_controller_verbosity)" />
 		<param name = "plot"      type="int" value = "$(arg motion_controller_plot)" />
-	</node>
+	</node> -->
 
 	<!-- Task-level Controller -->
-	<node 
+	<!-- <node 
 		pkg="navigation" 
 		type="task_level_controller.py" 
 		name="task_level_controller" 
 		output="screen">
-	</node>
+	</node> -->
 
 </launch>
