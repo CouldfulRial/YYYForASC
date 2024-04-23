@@ -14,8 +14,6 @@ from std_msgs.msg import Bool
 from asclinic_pkg.msg import LeftRightFloat32, LeftRightFloat32
 import matplotlib.pyplot as plt
 
-K_u = 200.0
-T_u = 20 / 3.0
 
 class MotorController:
     def __init__(self):
@@ -50,11 +48,6 @@ class MotorController:
         self.desired_left_speed = 0.0
         self.desired_right_speed = 0.0
 
-        # PID parameters (Tune these for your specific motors and robot)
-        self.Kp = 20
-        self.Ki = 20
-        self.Kd = 0
-
         # Integral and Derivative components
         self.integral_left = 0.0
         self.integral_right = 0.0
@@ -74,14 +67,7 @@ class MotorController:
             self.desired_left_speed_list.append(self.desired_left_speed)
             self.desired_right_speed_list.append(self.desired_right_speed)
 
-        self.integral_left += error_left
-        self.integral_right += error_right
-
-        derivative_left = error_left - self.last_error_left
-        derivative_right = error_right - self.last_error_right
-
-        duty_cycle_left = self.Kp * error_left + self.Ki * self.integral_left + self.Kd * derivative_left
-        duty_cycle_right = self.Kp * error_right + self.Ki * self.integral_right + self.Kd * derivative_right
+        duty_cycle_left, duty_cycle_right = self.controller(error_left, error_right)
 
         # Publish duty cycles
         self.duty_cycle_pub.publish(LeftRightFloat32(left=duty_cycle_left, right=duty_cycle_right))
@@ -98,6 +84,24 @@ class MotorController:
                         f"Current Left Speed:   {self.current_left_speed:3.2f}, Current Right Speed: {self.current_right_speed:3.2f}\n" + 
                         f"Left Duty Cycle:      {duty_cycle_left:3.2f},         Right Duty Cycle:    {duty_cycle_right:3.2f}\n")
 
+    def controller(self, error_left, error_right):
+        # PID parameters
+        Kp = 20
+        Ki = 20
+        Kd = 0
+
+        # I
+        self.integral_left  += error_left
+        self.integral_right += error_right
+
+        # D
+        derivative_left  = error_left  - self.last_error_left
+        derivative_right = error_right - self.last_error_right
+
+        duty_cycle_left  = Kp * error_left  + Ki * self.integral_left  + Kd * derivative_left
+        duty_cycle_right = Kp * error_right + Ki * self.integral_right + Kd * derivative_right
+
+        return duty_cycle_left, duty_cycle_right
 
     def ref_speed_callback(self, data):
         self.desired_left_speed = data.left

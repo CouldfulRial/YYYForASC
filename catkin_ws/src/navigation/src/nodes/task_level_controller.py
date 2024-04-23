@@ -14,7 +14,8 @@ import tf.transformations
 from math import pi
 
 # Define hyperparameters
-ERROR_LINEAR = 0.1
+ERROR_X = 0.1
+ERROR_Y = 0.2
 ERROR_ANGULAR = pi / 100
 
 class TaskLevelController:
@@ -92,8 +93,8 @@ class TaskLevelController:
             return 0  # If intialised to None, return 0
 
     def reached_target(self, x, y, theta):
-        if (abs(self.current_pose_x - x) < ERROR_LINEAR and
-            abs(self.current_pose_y - y) < ERROR_LINEAR and
+        if (abs(self.current_pose_x - x) < ERROR_X and
+            abs(self.current_pose_y - y) < ERROR_Y and
             abs(self.current_theta - theta) < ERROR_ANGULAR):
             return True
         return False

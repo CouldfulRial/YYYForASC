@@ -30,6 +30,10 @@ RADIAN_PER_COUNT = 2 * pi / CPR
 
 class WheelOdom:
     def __init__(self):
+        # Get user parameter
+        self.verbosity       = rospy.get_param('~verbosity', 0)
+        self.plot            = rospy.get_param('~plot', 1)
+
         rospy.init_node('wheel_odometry', anonymous=True)
 
         # Initialise the subscribers
@@ -52,24 +56,24 @@ class WheelOdom:
 
     def update_speeds_callback(self, data):
         # Update the encoder counts to delta theta for both wheels in radian
-        delta_theta_l = data.left
-        delta_theta_r = data.right
+        self.delta_theta_l = data.left
+        self.delta_theta_r = data.right
 
         # Map to:
         #   forward movement in the body frame (delta_s) (drive: v)
         #   rotation of the robot (delta_psi)            (steer: omega)
-        self.v     = WHEEL_RADIUS * (delta_theta_l + delta_theta_r) / 2
-        self.omega = WHEEL_RADIUS * (delta_theta_r - delta_theta_l) / WHEEL_BASE
+        self.v     = WHEEL_RADIUS * (self.delta_theta_l + self.delta_theta_r) / 2
+        self.omega = WHEEL_RADIUS * (self.delta_theta_r - self.delta_theta_l) / WHEEL_BASE
 
         # Map to movement in the inertial frame
-        delta_x_p = self.v * cos(self.psi)
-        delta_y_p = self.v * sin(self.psi)
-        delta_psi = self.omega
+        self.delta_x_p = self.v * cos(self.psi)
+        self.delta_y_p = self.v * sin(self.psi)
+        self.delta_psi = self.omega
 
         # Update the inertial pose
-        self.x += delta_x_p
-        self.y += delta_y_p
-        self.psi += delta_psi
+        self.x   += self.delta_x_p
+        self.y   += self.delta_y_p
+        self.psi += self.delta_psi
         # self.psi %= 2 * pi  # keep psi within 0, 2pi
 
         # Get current time
@@ -78,18 +82,6 @@ class WheelOdom:
         # Publish the odometry and tf
         self.publish_odom_tf()
         self.publish_odom()
-
-        # Logging at a slower rate
-        # if self.current_time - self.last_logged_time >= rospy.Duration(2.0):
-            #Display in the console
-            # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, left count: {data.left}, right count: {data.right}")
-            # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, delta_theta_l: {delta_theta_l:.2f}, delta_theta_r: {delta_theta_r:.2f}")
-            # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, v: {v:.2f}, omega: {omega:.2f}")
-            # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, delta_x_p: {delta_x_p:.2f}, delta_y_p: {delta_y_p:.2f}")
-        # rospy.loginfo(f"Seq_Num: {data.seq_num:05d}, x: {self.x:.2f}, y: {self.y:.2f}, psi: {self.psi:.2f}")
-
-            # self.last_logged_time = self.current_time
-
 
     def publish_odom(self):
         # Create the odometry message
@@ -108,6 +100,14 @@ class WheelOdom:
         odom_msg.twist.twist.linear.x = self.v
         odom_msg.twist.twist.angular.z = self.omega
 
+        # Log
+        if self.verbosity == 1:
+            rospy.loginfo("-"*25 + "Wheel Odometry" + "-"*25 + 
+                          f"\ndelta_theta_l: {self.delta_theta_l:3.2f}, delta_theta_r: {self.delta_theta_r:3.2f}" + 
+                          f"\nv:             {self.v:3.2f}, omega: {self.omega:3.2f}" + 
+                          f"\ndelta_x_p:     {self.delta_x_p:3.2f}, delta_y_p: {self.delta_y_p:3.2f}, delta_psi: {self.delta_psi:3.2f}" + 
+                          f"\nself.x:        {self.x:3.2f}, self.y: {self.y:3.2f}, self.psi: {self.psi:3.2f}")
+
         # Publish the odometry message
         self.odom_pub.publish(odom_msg)
 
@@ -121,6 +121,14 @@ class WheelOdom:
             "base_link",
             "odom"
         )
+
+    @staticmethod
+    def quat_to_euler(quat):
+        if quat is not None:
+            euler = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+            return euler[2]  # return the yaw, which is the orientation around z-axis
+        else:
+            return 0  # If intialised to None, return 0
         
 
 
