@@ -5,7 +5,6 @@ This node controls the motors (inner controller)
 Subscribed topics:
     measured_wheel_speeds     [asclinc_pkg/LeftRightFloat32]
     reference_wheel_speeds    [asclinc_pkg/LeftRightFloat32]
-    plot                      [Bool]
 Published topics:
     /asc/set_motor_duty_cycle [asclinc_pkg/LeftRightFloat32]
 '''

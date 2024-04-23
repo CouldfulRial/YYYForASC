@@ -2,10 +2,12 @@
     <!-- This launch file launchs the wheel odometry, the encoder and the motor driver -->
 	<!-- list of arguments that can be given as inputs of the launch file -->
     <arg name="motor_controller_verbosity"  default="0" />
-	<arg name="motion_controller_verbosity" default="0" />
+	<arg name="motion_controller_verbosity" default="1" />
+
 	<arg name="motor_controller_plot"       default="0" />
-	<arg name="motion_controller_plot"      default="0" />
-	<arg name="controller_type"             default="1" />
+	<arg name="motion_controller_plot"      default="1" />
+	
+	<arg name="controller_type"             default="2" />
 
 	<!-- START A GROUP WITH A NAMESPACE -->
 	<group ns="asc">
@@ -85,7 +87,7 @@
 		output="screen">
 
 		<param name = "verbosity" type="int" value = "$(arg motion_controller_verbosity)" />
-		<param name = "plot"      type="int" value = "$(arg mmotion_controller_plot)" />
+		<param name = "plot"      type="int" value = "$(arg motion_controller_plot)" />
 	</node>
 
 	<!-- Task-level Controller -->

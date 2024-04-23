@@ -27,9 +27,9 @@ HALF_WHEEL_BASE = WHEEL_BASE / 2
 class MotionController:
     def __init__(self):
         # Get user parameter
-        self.verbosity       = rospy.get_param('~verbosity', 'default_value')
-        self.plot            = rospy.get_param('~plot', 'default_value')
-        self.controller_type = rospy.get_param('~controller_type', 'default_value')
+        self.verbosity       = rospy.get_param('~verbosity', 1)
+        self.plot            = rospy.get_param('~plot', 1)
+        self.controller_type = rospy.get_param('~controller_type', 2)
 
         rospy.init_node('motion_controller', anonymous=True)
 
@@ -44,8 +44,8 @@ class MotionController:
         # Publisher for the reference wheel speeds
         self.speed_pub = rospy.Publisher('reference_wheel_speeds', LeftRightFloat32, queue_size=10)
 
-        # Desired pose, later will be topic
-        # self.desired_pose = Pose2D(x=0, y=0, theta=3*pi/2)
+        # Desired pose for testing
+        # self.desired_pose = Pose2D(x=1, y=0, theta=0)
 
         # Register the shutdown callback ==> plot
         rospy.on_shutdown(self.shutdown_callback)
@@ -92,7 +92,7 @@ class MotionController:
         right_speed = (v + omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
 
         # Add saturation to both wheels
-        SPEED_LIMIT = 0.25
+        SPEED_LIMIT = 0.2
         if left_speed > SPEED_LIMIT:
             left_speed = SPEED_LIMIT
         elif left_speed < -SPEED_LIMIT:
@@ -105,11 +105,12 @@ class MotionController:
         # Display log
         if self.verbosity == 1:
             rospy.loginfo("-"*25 + "Motion Controller" + "-"*25 + 
-                        f"\ndesired_pose_x: {self.desired_pose.x:3.2f},    desired_pose_y: {self.desired_pose.y:3.2f}, desired_theta: {self.desired_pose.theta:3.2f}" + 
-                        f"\ncurrent_pose_x: {self.current_pose_x:3.2f},    current_pose_y: {self.current_pose_y:3.2f}, current_theta: {self.current_theta:3.2f}" + 
-                        f"\nex_robot:       {self.ex_robot:3.2f},          ey_robot: {self.ey_robot:3.2f},             error_theta: {error_theta:3.2f}" +
-                        f"\nv:              {v:3.2f},                      omega: {omega:3.2f}" +
-                        f"\nleft_speed:     {left_speed:3.2f},             right_speed: {right_speed:3.2f}")
+                        f"\nUsing controller {self.controller_type}" +
+                        f"\ndesired_pose_x: {self.desired_pose.x:3.2f}, desired_pose_y: {self.desired_pose.y:3.2f}, desired_theta: {self.desired_pose.theta:3.2f}" + 
+                        f"\ncurrent_pose_x: {self.current_pose_x:3.2f}, current_pose_y: {self.current_pose_y:3.2f}, current_theta: {self.current_theta:3.2f}" + 
+                        # f"\nex_robot:       {self.ex_robot:3.2f},          ey_robot: {self.ey_robot:3.2f},             error_theta: {error_theta:3.2f}" +
+                        f"\nv:              {v:3.2f}, omega: {omega:3.2f}" +
+                        f"\nleft_speed:     {left_speed:3.2f}, right_speed: {right_speed:3.2f}")
 
         # Publish the calculated wheel speeds
         self.speed_pub.publish(LeftRightFloat32(left=left_speed, right=right_speed))
@@ -118,8 +119,8 @@ class MotionController:
         # Extract the current pose from the odometry message
         self.current_pose_x = data.pose.pose.position.x
         self.current_pose_y = data.pose.pose.position.y
-        self.current_theta  = data.pose.pose.orientation
-        self.current_theta = self.quat_to_euler(self.current_theta)
+        self.current_theta  = data.pose.pose.orientation.z
+        # self.current_theta = self.quat_to_euler(self.current_theta)
         # map to [0, 2pi]
         # if self.current_theta < 0:
         #     self.current_theta += 2 * pi
@@ -142,11 +143,11 @@ class MotionController:
         # Controller parameters
         # Gains
         # Position
-        Kp_pos = 0.03
+        Kp_pos = 0.05
         Ki_pos = 0
 
         # Angular
-        Kp_ang = 0.03
+        Kp_ang = 0.05
         Ki_ang = 0
 
         # Initialise controller integrals
@@ -176,7 +177,7 @@ class MotionController:
         '''
         # Controller parameters
         # Gains
-        k_rho   = 0.03
+        k_rho   = 0.05
         k_alpha = 0.08
         k_beta  = 0.015
 

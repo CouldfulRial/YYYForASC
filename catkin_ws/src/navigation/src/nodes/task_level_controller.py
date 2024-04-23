@@ -42,10 +42,10 @@ class TaskLevelController:
 
     def timer_callback(self, event):
         # State transition logic
-        if self.state == "MOVE_FORWARD" and self.reached_target(3, 0, 0):
+        if self.state == "MOVE_FORWARD" and self.reached_target(10, 0, 0):
             self.state = "TURN_AROUND"
 
-        elif self.state == "TURN_AROUND" and self.reached_target(3, 0, pi):
+        elif self.state == "TURN_AROUND" and self.reached_target(10, 0, pi):
             self.state = "MOVE_BACKWARD"
 
         elif self.state == "MOVE_BACKWARD" and self.reached_target(0, 0, pi):
@@ -56,10 +56,10 @@ class TaskLevelController:
 
         # State action logic
         if self.state == "MOVE_FORWARD":
-            self.target = Pose2D(3, 0, 0)
+            self.target = Pose2D(10, 0, 0)
 
         elif self.state == "TURN_AROUND":
-            self.target = Pose2D(3, 0, pi)
+            self.target = Pose2D(10, 0, pi)
 
         elif self.state == "MOVE_BACKWARD":
             self.target = Pose2D(0, 0, pi)
@@ -69,16 +69,16 @@ class TaskLevelController:
 
         # Publish the target pose
         self.pos_pub.publish(self.target)
-        rospy.loginfo("-"*25 + "FSM" + "-"*25 + 
-                      f"\nState: {self.state}" + 
-                      f"\ntarger pose: {self.target.x:3.2f}, {self.target.y:3.2f}, {self.target.theta:3.2f},")
+        # rospy.loginfo("-"*25 + "FSM" + "-"*25 + 
+        #               f"\nState: {self.state}" + 
+        #               f"\ntarger pose: {self.target.x:3.2f}, {self.target.y:3.2f}, {self.target.theta:3.2f},")
 
     def odom_callback(self, data):
         # Extract the current pose from the odometry message
         self.current_pose_x = data.pose.pose.position.x
         self.current_pose_y = data.pose.pose.position.y
-        self.current_theta = data.pose.pose.orientation
-        self.current_theta = self.quat_to_euler(self.current_theta)
+        self.current_theta = data.pose.pose.orientation.z
+        # self.current_theta = self.quat_to_euler(self.current_theta)
         # map to [0, 2pi]
         # if self.current_theta < 0:
         #     self.current_theta += 2 * pi
