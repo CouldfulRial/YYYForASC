@@ -1,8 +1,0 @@
-<launch>
-
-    <node pkg="navigation"  type="parameter.py"  name="parameter"  output="screen">
-
-		<param name = "verbosity" value = "0" />
-	</node>
-
-</launch>
