@@ -3,30 +3,36 @@
 '''
 This node controls the motors (inner controller)
 Subscribed topics:
-    measured_vel [geometry_msgs/Twist]
-    ref_vel      [geometry_msgs/Twist]
+    measured_vel              [geometry_msgs/Twist]
+    cmd_vel                   [geometry_msgs/Twist]
 Published topics:
-    cmd_vel      [geometry_msgs/Twist]
+    /asc/set_motor_duty_cycle [asclinic_pkg/LeftRightFloat32]
 '''
 
 import rospy
-from std_msgs.msg import Bool
+from geometry_msgs.msg import Twist
 from asclinic_pkg.msg import LeftRightFloat32, LeftRightFloat32
 import matplotlib.pyplot as plt
 
+# Constatns
+WHEEL_DIAMETER = 0.144  # m
+WHEEL_RADIUS = WHEEL_DIAMETER / 2
+WHEEL_BASE = 0.218  # m
+HALF_WHEEL_BASE = WHEEL_BASE / 2
 
 class MotorController:
     def __init__(self):
-        # Get user parameter
-        self.verbosity = rospy.get_param('~verbosity', 'default_value')
-        self.plot      = rospy.get_param('~plot', 'default_value')
-
+         # Initialise node
         rospy.init_node('motor_controller')
 
+        # Get user parameter
+        self.parm  = rospy.get_param('motor_controller')
+        self.verbosity = self.parm["verbosity"]
+        self.plot      = self.parm["plot"]
+
         # Subscribers
-        self.ref_speed_sub = rospy.Subscriber('reference_wheel_speeds', LeftRightFloat32, self.ref_speed_callback)
-        self.mes_speed_sub = rospy.Subscriber('measured_wheel_speeds', LeftRightFloat32, self.mes_speed_callback)
-        # self.plot_sub = rospy.Subscriber('plot', Bool, self.plot_callback)
+        self.ref_speed_sub = rospy.Subscriber('cmd_vel', Twist, self.ref_twist_callback)
+        self.mes_speed_sub = rospy.Subscriber('measured_vel', Twist, self.mes_twist_callback)
 
         # Timer: Calls the timer_callback function at 20 Hz
         self.timer = rospy.Timer(rospy.Duration(0.05), self.timer_callback)
@@ -103,13 +109,24 @@ class MotorController:
 
         return duty_cycle_left, duty_cycle_right
 
-    def ref_speed_callback(self, data):
-        self.desired_left_speed = data.left
-        self.desired_right_speed = data.right
+    def ref_twist_callback(self, data):
+        v = data.linear.x
+        omega = data.angular.z
 
-    def mes_speed_callback(self, data):
-        self.current_left_speed = data.left
-        self.current_right_speed = data.right
+        self.desired_left_speed, self.desired_right_speed = self.twist_to_speeds(v, omega)
+
+    def mes_twist_callback(self, data):
+        v = data.linear.x
+        omega = data.angular.z
+
+        self.current_left_speed, self.current_right_speed = self.twist_to_speeds(v, omega)
+
+    @staticmethod
+    def twist_to_speeds(v, omega):
+        delta_theta_l = (v - omega * HALF_WHEEL_BASE) / WHEEL_RADIUS
+        delta_theta_r = (v + omega * HALF_WHEEL_BASE) / WHEEL_RADIUS
+
+        return delta_theta_l, delta_theta_r
 
     def shutdown_callback(self):
         rospy.loginfo("Shutting Down Motors....")
