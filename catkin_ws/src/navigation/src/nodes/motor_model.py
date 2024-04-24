@@ -23,6 +23,8 @@ HALF_WHEEL_BASE = WHEEL_BASE / 2
 CPR = 1120
 RADIAN_PER_COUNT = 2 * pi / CPR
 
+TIME_STEP = 0.1  # s, which is the interval encoder publishes data
+
 
 class MotorModel:
     def __init__(self):
@@ -52,8 +54,8 @@ class MotorModel:
         self.seq = data.seq_num
 
         # Convert the delta theta to v and omega
-        v     = WHEEL_RADIUS * (self.delta_theta_l + self.delta_theta_r) / 2           # m / 0.1s
-        omega = WHEEL_RADIUS * (self.delta_theta_r - self.delta_theta_l) / WHEEL_BASE  # rad / 0.1s
+        v     = WHEEL_RADIUS * (self.delta_theta_l + self.delta_theta_r) / 2           / TIME_STEP # m/s
+        omega = WHEEL_RADIUS * (self.delta_theta_r - self.delta_theta_l) / WHEEL_BASE  / TIME_STEP # rad/s
 
         # log info
         if self.verbosity == 1:
