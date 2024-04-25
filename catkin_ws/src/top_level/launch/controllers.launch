@@ -56,23 +56,16 @@
 	</group>
 
 	<!-- Wheel Odometry-->
-	<node pkg="navigation"  type="wheel_odometry.py"  name="wheel_odometry"  output="screen">
+	<node pkg="localisation"  type="wheel_odometry.py"  name="wheel_odometry"  output="screen">
 
 		<param name = "verbosity" type="int" value = "$(arg wheel_odom_verbosity)" />
 		<param name = "plot"      type="int" value = "$(arg wheel_odom_plot)" />
 	</node>
 
 	<!-- Motor Model -->
-	<node pkg="navigation"  type="motor_model.py"  name="motor_model"  output="screen">
+	<node pkg="controller"  type="motor_model.py"  name="motor_model"  output="screen">
 
 		<param name = "verbosity" value = "1" />
-	</node>
-
-	<!-- Twist to DC -->
-	<node 
-		pkg="navigation"  type="twist_to_duty_cycle.py"  name="twist_to_duty_cycle"  output="screen">
-
-		<param name = "verbosity" value = "0" />
 	</node>
 
 	<!-- Motor Controller -->
