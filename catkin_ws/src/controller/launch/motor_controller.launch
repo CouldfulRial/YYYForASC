@@ -1,0 +1,66 @@
+<launch>
+
+	<!-- START A GROUP WITH A NAMESPACE -->
+	<group ns        = "asc">
+
+		<!-- LAUNCH A "I2C for Motors" NODE -->
+		<node
+			pkg            = "asclinic_pkg"
+			name           = "i2c_for_motors"
+			output         = "screen"
+			type           = "i2c_for_motors"
+			>
+			<param name    = "motor_driver_verbosity" value = "1" />
+			<param name    = "motor_driver_current_limit_in_milliamps" value = "5000" />
+			<param name    = "motor_driver_max_duty_cycle_limit_in_percent" value = "100.0" />
+			<param name    = "motor_driver_max_accel_limit_in_percent_per_millisecond" value = "0.01" />
+			<param name    = "motor_driver_max_decel_limit_in_percent_per_millisecond" value = "0.16" />
+			<param name    = "motor_driver_left_side_multiplier" value = "1" />
+			<param name    = "motor_driver_right_side_multiplier" value = "1" />
+		</node>
+
+		<!-- LAUNCH A "Encoder Read Multi Threaded" NODE -->
+		<node
+			pkg            = "asclinic_pkg"
+			name           = "encoder_read_multi_threaded"
+			output         = "screen"
+			type           = "encoder_read_multi_threaded"
+			>
+			<param name    = "encoder_read_verbosity" value = "1" />
+			<param name    = "gpio_chip_number_for_encoder_lines" value = "1" />
+			<param name    = "should_monitor_left_side_encoder_channel_a" value = "true" />
+			<param name    = "should_monitor_left_side_encoder_channel_b" value = "false" />
+			<param name    = "should_monitor_right_side_encoder_channel_a" value = "true" />
+			<param name    = "should_monitor_right_side_encoder_channel_b" value = "false" />
+			<param name    = "line_number_for_left_side_encoder_channel_a" value = "105" />
+			<param name    = "line_number_for_left_side_encoder_channel_b" value = "106" />
+			<param name    = "line_number_for_right_side_encoder_channel_a" value = "84" />
+			<param name    = "line_number_for_right_side_encoder_channel_b" value = "130" />
+			<!-- NOTE      : options for event monitoring are: "rising", "falling", "both" -->
+			<param name    = "encoder_events_to_monitor" value = "rising" />
+			<param name    = "delta_t_for_publishing_encoder_counts" value = "0.1" />
+		</node>
+
+	</group>
+
+	<!-- Motor Model -->
+	<node pkg           = "controller"
+		type            = "motor_model.py"
+		name            = "motor_model"
+		output          = "screen">
+
+		<param name     = "verbosity" value = "0" />
+	</node>
+
+	<!-- Motor Controller -->
+	<node 
+		pkg             = "controller"
+		type            = "motor_controller.py"
+		name            = "motor_controller"
+		output          = "screen">
+
+		<param name     = "verbosity" value = "1" />
+		<param name     = "save_data" value = "1" />
+	</node>
+
+</launch>

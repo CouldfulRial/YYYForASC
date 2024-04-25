@@ -24,7 +24,7 @@
 
 	<!-- Wheel Odometry-->
 	<node 
-		pkg="navigation" 
+		pkg="controller" 
 		type="stop_motors.py" 
 		name="stop_motors" 
 		output="screen">
