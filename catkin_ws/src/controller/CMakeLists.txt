@@ -166,10 +166,11 @@ catkin_install_python(PROGRAMS
   src/nodes/motor_controller.py
   src/nodes/motion_controller.py
   src/nodes/stop_motors.py
+  src/nodes/twist_to_wheel_speeds.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-## Mark executables for installation
+## Mark executables for installsation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 # install(TARGETS ${PROJECT_NAME}_node
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

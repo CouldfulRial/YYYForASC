@@ -26,13 +26,25 @@ class MotorController:
     def __init__(self):
         # Initialise node
         self.node_name = 'motor_controller'
-        rospy.init_node(self.node_name)
+        rospy.init_node(self.node_name, anonymous=True)
 
         # Get user parameter
         self.parm  = rospy.get_param(self.node_name)
         self.verbosity = self.parm["verbosity"]
         self.save_data = self.parm["save_data"]
         self.debug = self.parm["debug"]  # If debug, only run for DEBUG_LENGTH seconds
+
+        # Initialise variables
+        # left
+        self.current_left_speed = 0.0
+        self.desired_left_speed = 0.0
+        self.integral_left = 0.0
+        self.integral_right = 0.0
+        # right
+        self.current_right_speed = 0.0
+        self.desired_right_speed = 0.0
+        self.last_error_left = 0.0
+        self.last_error_right = 0.0
 
         # Subscribers
         if self.debug == 0:
@@ -61,18 +73,6 @@ class MotorController:
         self.save_path = self.get_save_path()
         intial_time = datetime.datetime.now()
         self.formatted_time = intial_time.strftime('%y%m%d_%H_%M_%S')
-
-        # Initialise variables
-        # left
-        self.current_left_speed = 0.0
-        self.desired_left_speed = 0
-        self.integral_left = 0.0
-        self.integral_right = 0.0
-        # right
-        self.current_right_speed = 0.0
-        self.desired_right_speed = 0
-        self.last_error_left = 0.0
-        self.last_error_right = 0.0
 
     def timer_callback(self, event):
         # Controller algorithm
@@ -156,7 +156,7 @@ class MotorController:
         plt.plot(self.time_list, self.left_speed_list, label='Left Wheel Speed')
         plt.plot(self.time_list, self.desired_left_speed_list, label='Desired Left Speed')
         plt.ylabel('Left Wheel Speed (rad/s)')
-        plt.title(f"Left Motor Controller, Kp_l = {self.Kp_l:2.2f}, Ki_l = {self.Ki_l:2.2f}, Kd_l = {self.Kd_l:2.2f}")
+        plt.title(f"Motor Controllers, P = {self.P:2.2f}, I = {self.D:2.2f}, D = {self.D:2.2f}")
         plt.legend()
         ax1.grid(True)
         
@@ -166,7 +166,6 @@ class MotorController:
         plt.plot(self.time_list, self.desired_right_speed_list, label='Desired Right Speed')
         plt.xlabel('Time (s)')
         plt.ylabel('Right Wheel Speed (rad/s)')
-        plt.title(f"Right Motor Controller, Kp_r = {self.Kp_r:2.2f}, Ki_r = {self.Ki_r:2.2f}, Kd_r = {self.Kd_r:2.2f}")
         plt.legend()
         ax2.grid(True)
 
@@ -189,10 +188,10 @@ class MotorController:
     
     def sig_gen(self, event):
         # This function generates a signal for the reference speed
-        # self.desired_left_speed = pi if self.desired_left_speed == 0 else 0
-        # self.desired_right_speed = pi if self.desired_right_speed == 0 else 0
-        self.desired_left_speed += 0.5
-        self.desired_right_speed += 0.5
+        self.desired_left_speed = pi if self.desired_left_speed == 0 else 0
+        self.desired_right_speed = pi if self.desired_right_speed == 0 else 0
+        # self.desired_left_speed += 0.5
+        # self.desired_right_speed += 0.5
 
     @staticmethod
     def saturation(value, limit):

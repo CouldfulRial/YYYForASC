@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+
+'''
+This node implements the pure pursuit controller
+Subscribed topics:
+    path    [nav_msgs/Path]
+    wodom   [nav_msgs/Odometry]
+Published topics:
+    cmd_vel [geometry_msgs/Twist]
+'''
 import rospy
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Twist
