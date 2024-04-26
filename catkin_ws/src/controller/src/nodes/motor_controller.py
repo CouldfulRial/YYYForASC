@@ -19,12 +19,8 @@ import matplotlib.pyplot as plt
 
 # Constatns
 TIME_STEP = 0.1  # s
-DEBUG_LENGTH = 5  # s
-
-# Ziegler–Nichols method parameters
-KU_LEFT = 15
-KU_RIGHT = 15
-TU = 0.2
+DEBUG_LENGTH = 10  # s
+DC_BIAS = 5.67 
 
 class MotorController:
     def __init__(self):
@@ -39,40 +35,44 @@ class MotorController:
         self.debug = self.parm["debug"]  # If debug, only run for DEBUG_LENGTH seconds
 
         # Subscribers
-        # self.ref_speed_sub = rospy.Subscriber('cmd_speeds', Twist, self.ref_speeds_callback)
+        if self.debug == 0:
+            self.ref_speed_sub = rospy.Subscriber('cmd_speeds', Twist, self.ref_speeds_callback)
         self.mes_speed_sub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.mes_speeds_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(TIME_STEP), self.timer_callback)
+        if self.debug == 1:
+            self.timer = rospy.Timer(rospy.Duration(1), self.sig_gen)  # duration *2 for period
 
         # Publisher
         self.duty_cycle_pub = rospy.Publisher('/asc/set_motor_duty_cycle', LeftRightFloat32, queue_size=10)
 
         # Register the shutdown callback
         rospy.on_shutdown(self.shutdown_callback)
+
+        # Intialise data saving
         if self.save_data == 1:
             self.time_list = [0]
             self.left_speed_list = [0]
             self.right_speed_list = [0]
             self.desired_left_speed_list = [0]
             self.desired_right_speed_list = [0]
-
-        # Initialise variables
-        # left
-        self.current_left_speed = 0.0
-        self.desired_left_speed = -pi/2
-        self.integral_left = 0.0
-        self.integral_right = 0.0
-        # right
-        self.current_right_speed = 0.0
-        self.desired_right_speed = pi/2
-        self.last_error_left = 0.0
-        self.last_error_right = 0.0
-
         # Get save path. Set the file name to the intial time
         self.save_path = self.get_save_path()
         intial_time = datetime.datetime.now()
         self.formatted_time = intial_time.strftime('%y%m%d_%H_%M_%S')
+
+        # Initialise variables
+        # left
+        self.current_left_speed = 0.0
+        self.desired_left_speed = 0
+        self.integral_left = 0.0
+        self.integral_right = 0.0
+        # right
+        self.current_right_speed = 0.0
+        self.desired_right_speed = 0
+        self.last_error_left = 0.0
+        self.last_error_right = 0.0
 
     def timer_callback(self, event):
         # Controller algorithm
@@ -91,10 +91,9 @@ class MotorController:
             rospy.signal_shutdown("Debugging finished")
 
         duty_cycle_left, duty_cycle_right = self.controller(error_left, error_right)
-        duty_cycle_left = self.saturation(duty_cycle_left, 20)
-        duty_cycle_right = self.saturation(duty_cycle_right, 20)
+        duty_cycle_left += DC_BIAS
+        duty_cycle_right += DC_BIAS
 
-        # Diaply in the console
         if self.verbosity == 1:
             rospy.loginfo("-"*25 + "Motor Controller" + "-"*25 +  
                         f"\nDesired Left Speed: {self.desired_left_speed:3.5f}, Desired Right Speed: {self.desired_right_speed:3.5f}\n" + 
@@ -110,17 +109,9 @@ class MotorController:
 
     def controller(self, error_left, error_right):
         # PID parameters
-        P = 2
-        I = 0
-        D = 0
-        # Left
-        self.Kp_l = 50
-        self.Ki_l = I * KU_LEFT / TU
-        self.Kd_l = D * KU_LEFT * TU
-        # Right
-        self.Kp_r = 50
-        self.Ki_r = I * KU_RIGHT / TU
-        self.Kd_r = D * KU_RIGHT * TU
+        self.P = 2
+        self.I = 1.5
+        self.D = 0.09
 
         # I
         self.integral_left  += error_left
@@ -130,8 +121,9 @@ class MotorController:
         derivative_left  = error_left  - self.last_error_left
         derivative_right = error_right - self.last_error_right
 
-        duty_cycle_left  = self.Kp_l * error_left  + self.Ki_l * self.integral_left  + self.Kd_l * derivative_left
-        duty_cycle_right = self.Kp_r * error_right + self.Ki_r * self.integral_right + self.Kd_r * derivative_right
+        # PID
+        duty_cycle_left  = self.P * error_left  + self.I * self.integral_left  + self.D * derivative_left
+        duty_cycle_right = self.P * error_right + self.I * self.integral_right + self.D * derivative_right
 
         return duty_cycle_left, duty_cycle_right
 
@@ -162,7 +154,7 @@ class MotorController:
         # plot left
         ax1 = plt.subplot(2, 1, 1)
         plt.plot(self.time_list, self.left_speed_list, label='Left Wheel Speed')
-        plt.plot(self.time_list, self.desired_left_speed_list, label='desired left')
+        plt.plot(self.time_list, self.desired_left_speed_list, label='Desired Left Speed')
         plt.ylabel('Left Wheel Speed (rad/s)')
         plt.title(f"Left Motor Controller, Kp_l = {self.Kp_l:2.2f}, Ki_l = {self.Ki_l:2.2f}, Kd_l = {self.Kd_l:2.2f}")
         plt.legend()
@@ -171,7 +163,7 @@ class MotorController:
         # plot right
         ax2 = plt.subplot(2, 1, 2)
         plt.plot(self.time_list, self.right_speed_list, label='Right Wheel Speed')
-        plt.plot(self.time_list, self.desired_right_speed_list, label='desired right')
+        plt.plot(self.time_list, self.desired_right_speed_list, label='Desired Right Speed')
         plt.xlabel('Time (s)')
         plt.ylabel('Right Wheel Speed (rad/s)')
         plt.title(f"Right Motor Controller, Kp_r = {self.Kp_r:2.2f}, Ki_r = {self.Ki_r:2.2f}, Kd_r = {self.Kd_r:2.2f}")
@@ -194,6 +186,13 @@ class MotorController:
     def get_save_path(self):
         rospack = rospkg.RosPack()
         return rospack.get_path("controller") + '/src/data/'
+    
+    def sig_gen(self, event):
+        # This function generates a signal for the reference speed
+        # self.desired_left_speed = pi if self.desired_left_speed == 0 else 0
+        # self.desired_right_speed = pi if self.desired_right_speed == 0 else 0
+        self.desired_left_speed += 0.5
+        self.desired_right_speed += 0.5
 
     @staticmethod
     def saturation(value, limit):
