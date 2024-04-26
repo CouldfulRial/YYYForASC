@@ -29,3 +29,7 @@ catkin_ws/src/rplidar_ros/
 
 # Ignore .vscode folder
 .vscode/
+
+# Ignore .png and .csv for analysis
+*.png
+*.csv
