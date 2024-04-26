@@ -3,10 +3,10 @@
 '''
 This node measures the speed in v and omega
 Subscribed topics:
-    /asc/current_motor_duty_cycle  [asclinc_pkg/LeftRightFloat32]
+    /asc/current_mostor_duty_cycle [asclinc_pkg/LeftRightFloat32]
     /asc/encoder_counts            [asclinc_pkg/LeftRightInt32]
 Published topics:
-    /mes_speeds                 [asclinic_pkg/LeftRightFloat32]
+    /mes_speeds                    [asclinic_pkg/LeftRightFloat32]
 '''
 from math import pi
 import rospy

@@ -12,12 +12,19 @@ import rospy
 import rospkg
 import datetime
 import csv
+from math import pi
 from geometry_msgs.msg import Twist
 from asclinic_pkg.msg import LeftRightFloat32, LeftRightFloat32
 import matplotlib.pyplot as plt
 
 # Constatns
 TIME_STEP = 0.1  # s
+DEBUG_LENGTH = 5  # s
+
+# Ziegler–Nichols method parameters
+KU_LEFT = 15
+KU_RIGHT = 15
+TU = 0.2
 
 class MotorController:
     def __init__(self):
@@ -29,10 +36,11 @@ class MotorController:
         self.parm  = rospy.get_param(self.node_name)
         self.verbosity = self.parm["verbosity"]
         self.save_data = self.parm["save_data"]
+        self.debug = self.parm["debug"]  # If debug, only run for DEBUG_LENGTH seconds
 
         # Subscribers
-        self.ref_speed_sub = rospy.Subscriber('cmd_speeds', Twist, self.ref_speeds_callback)
-        self.mes_speed_sub = rospy.Subscriber('mes_speeds', Twist, self.mes_speeds_callback)
+        # self.ref_speed_sub = rospy.Subscriber('cmd_speeds', Twist, self.ref_speeds_callback)
+        self.mes_speed_sub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.mes_speeds_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(TIME_STEP), self.timer_callback)
@@ -42,7 +50,7 @@ class MotorController:
 
         # Register the shutdown callback
         rospy.on_shutdown(self.shutdown_callback)
-        if self.plot == 1:
+        if self.save_data == 1:
             self.time_list = [0]
             self.left_speed_list = [0]
             self.right_speed_list = [0]
@@ -52,12 +60,12 @@ class MotorController:
         # Initialise variables
         # left
         self.current_left_speed = 0.0
-        self.desired_left_speed = 0.0
+        self.desired_left_speed = -pi/2
         self.integral_left = 0.0
         self.integral_right = 0.0
         # right
         self.current_right_speed = 0.0
-        self.desired_right_speed = 0.0
+        self.desired_right_speed = pi/2
         self.last_error_left = 0.0
         self.last_error_right = 0.0
 
@@ -73,22 +81,26 @@ class MotorController:
         error_right = self.desired_right_speed - self.current_right_speed
 
         # Store the speeds data
-        if self.plot == 1:
+        if self.save_data == 1:
             self.time_list.append(self.time_list[-1] + TIME_STEP)
             self.left_speed_list.append(self.current_left_speed)
             self.right_speed_list.append(self.current_right_speed)
             self.desired_left_speed_list.append(self.desired_left_speed)
             self.desired_right_speed_list.append(self.desired_right_speed)
+        if self.debug == 1 and self.time_list[-1] >= DEBUG_LENGTH:
+            rospy.signal_shutdown("Debugging finished")
 
         duty_cycle_left, duty_cycle_right = self.controller(error_left, error_right)
+        duty_cycle_left = self.saturation(duty_cycle_left, 20)
+        duty_cycle_right = self.saturation(duty_cycle_right, 20)
 
         # Diaply in the console
         if self.verbosity == 1:
             rospy.loginfo("-"*25 + "Motor Controller" + "-"*25 +  
-                        f"\nDesired Left Speed: {self.desired_left_speed:3.2f}, Desired Right Speed: {self.desired_right_speed:3.2f}\n" + 
-                        f"Current Left Speed:   {self.current_left_speed:3.2f}, Current Right Speed: {self.current_right_speed:3.2f}\n" + 
-                        f"Error_left:           {error_left:3.2f},              Error_right:         {error_right:3.2f}\n" + 
-                        f"Left Duty Cycle:      {duty_cycle_left:3.2f},         Right Duty Cycle:    {duty_cycle_right:3.2f}\n")
+                        f"\nDesired Left Speed: {self.desired_left_speed:3.5f}, Desired Right Speed: {self.desired_right_speed:3.5f}\n" + 
+                        f"Current Left Speed:   {self.current_left_speed:3.5f}, Current Right Speed: {self.current_right_speed:3.5f}\n" + 
+                        f"Error_left:           {error_left:3.5f},              Error_right:         {error_right:3.5f}\n" + 
+                        f"Left Duty Cycle:      {duty_cycle_left:3.5f},         Right Duty Cycle:    {duty_cycle_right:3.5f}\n")
             
         # Publish duty cycles
         self.duty_cycle_pub.publish(LeftRightFloat32(left=duty_cycle_left, right=duty_cycle_right))
@@ -98,9 +110,17 @@ class MotorController:
 
     def controller(self, error_left, error_right):
         # PID parameters
-        Kp = 2
-        Ki = 2
-        Kd = 0
+        P = 2
+        I = 0
+        D = 0
+        # Left
+        self.Kp_l = 50
+        self.Ki_l = I * KU_LEFT / TU
+        self.Kd_l = D * KU_LEFT * TU
+        # Right
+        self.Kp_r = 50
+        self.Ki_r = I * KU_RIGHT / TU
+        self.Kd_r = D * KU_RIGHT * TU
 
         # I
         self.integral_left  += error_left
@@ -110,8 +130,8 @@ class MotorController:
         derivative_left  = error_left  - self.last_error_left
         derivative_right = error_right - self.last_error_right
 
-        duty_cycle_left  = Kp * error_left  + Ki * self.integral_left  + Kd * derivative_left
-        duty_cycle_right = Kp * error_right + Ki * self.integral_right + Kd * derivative_right
+        duty_cycle_left  = self.Kp_l * error_left  + self.Ki_l * self.integral_left  + self.Kd_l * derivative_left
+        duty_cycle_right = self.Kp_r * error_right + self.Ki_r * self.integral_right + self.Kd_r * derivative_right
 
         return duty_cycle_left, duty_cycle_right
 
@@ -127,10 +147,10 @@ class MotorController:
     ##############################################################################################################
     def shutdown_callback(self):
         rospy.loginfo(f"Shutting down node {self.node_name}....")
-        while self.current_left_speed != 0 or self.current_right_speed != 0:
-            self.duty_cycle_pub.publish(LeftRightFloat32(left=0, right=0))
+        # while self.current_left_speed != 0 or self.current_right_speed != 0:
+        self.duty_cycle_pub.publish(LeftRightFloat32(left=0, right=0))
         if self.save_data == 1:
-            rospy.loginfo("Saving Data....")
+            rospy.loginfo(f"Saving Data To {self.save_path}....")
             self.plot()
             self.data()
             rospy.loginfo("Saving Data Completed....")
@@ -143,9 +163,8 @@ class MotorController:
         ax1 = plt.subplot(2, 1, 1)
         plt.plot(self.time_list, self.left_speed_list, label='Left Wheel Speed')
         plt.plot(self.time_list, self.desired_left_speed_list, label='desired left')
-        plt.xlabel('Time (s)')
         plt.ylabel('Left Wheel Speed (rad/s)')
-        plt.title("Motor Controller")
+        plt.title(f"Left Motor Controller, Kp_l = {self.Kp_l:2.2f}, Ki_l = {self.Ki_l:2.2f}, Kd_l = {self.Kd_l:2.2f}")
         plt.legend()
         ax1.grid(True)
         
@@ -155,6 +174,7 @@ class MotorController:
         plt.plot(self.time_list, self.desired_right_speed_list, label='desired right')
         plt.xlabel('Time (s)')
         plt.ylabel('Right Wheel Speed (rad/s)')
+        plt.title(f"Right Motor Controller, Kp_r = {self.Kp_r:2.2f}, Ki_r = {self.Ki_r:2.2f}, Kd_r = {self.Kd_r:2.2f}")
         plt.legend()
         ax2.grid(True)
 
@@ -173,7 +193,13 @@ class MotorController:
 
     def get_save_path(self):
         rospack = rospkg.RosPack()
-        return rospack.get_path(self.node_name) + 'src/data/'
+        return rospack.get_path("controller") + '/src/data/'
+
+    @staticmethod
+    def saturation(value, limit):
+        value = limit if value > limit else value
+        value = -limit if value < -limit else value
+        return value
 
 if __name__ == '__main__':
     controller = MotorController()

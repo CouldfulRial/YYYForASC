@@ -13,7 +13,7 @@
 			<param name    = "motor_driver_verbosity" value = "1" />
 			<param name    = "motor_driver_current_limit_in_milliamps" value = "5000" />
 			<param name    = "motor_driver_max_duty_cycle_limit_in_percent" value = "100.0" />
-			<param name    = "motor_driver_max_accel_limit_in_percent_per_millisecond" value = "0.01" />
+			<param name    = "motor_driver_max_accel_limit_in_percent_per_millisecond" value = "0.1" />
 			<param name    = "motor_driver_max_decel_limit_in_percent_per_millisecond" value = "0.16" />
 			<param name    = "motor_driver_left_side_multiplier" value = "1" />
 			<param name    = "motor_driver_right_side_multiplier" value = "1" />
@@ -57,10 +57,12 @@
 		pkg             = "controller"
 		type            = "motor_controller.py"
 		name            = "motor_controller"
-		output          = "screen">
+		output          = "screen"
+		required = "true">
 
 		<param name     = "verbosity" value = "1" />
 		<param name     = "save_data" value = "1" />
+		<param name     = "debug" value = "1" />
 	</node>
 
 </launch>
