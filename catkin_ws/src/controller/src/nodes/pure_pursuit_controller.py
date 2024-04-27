@@ -13,19 +13,14 @@ import rospkg
 import datetime
 import csv
 from nav_msgs.msg import Path, Odometry
-from geometry_msgs.msg import Twist, Vector3
-import math
+from geometry_msgs.msg import Twist, Vector3, Pose2D
 import tf
+import math
 import matplotlib.pyplot as plt
-from matplotlib import patches
 import numpy as np
 
 # Parmeters
-DEBUG_LENGTH = 10
 TIME_STEP = 0.1  # s
-LOOKAHEAD = 0.2
-WB = 0.04
-FREQS = 10
 
 class PurePursuitController:
     def __init__(self):
@@ -34,14 +29,26 @@ class PurePursuitController:
         rospy.init_node(self.node_name, anonymous=True)
 
         # Get user parameter
-        # self.parm  = rospy.get_param(self.node_name)
-        # self.verbosity = self.parm["verbosity"]
-        # self.save_data = self.parm["save_data"]
-        # self.debug = self.parm["debug"]  # If debug, only run for DEBUG_LENGTH seconds
+        self.parm  = rospy.get_param(self.node_name)
+        self.verbosity = self.parm["verbosity"]
+        self.save_data = self.parm["save_data"]
+        self.simulate = self.parm["simulate"]
+
+        # Initialise the variables
+        self.current_path = None
+        self.current_x = 0
+        self.current_y = 0
+        self.current_yaw = 0
+        self.target_x = 0.0
+        self.target_y = 0.0
+        self.target_yaw = 0.0
 
         # Subscribers
-        # self.path_subscriber = rospy.Subscriber('path', Path, self.path_callback)
+        self.path_subscriber = rospy.Subscriber('ref_pose', Pose2D, self.path_callback)
         self.odom_subscriber = rospy.Subscriber('odom', Odometry, self.odom_callback)
+
+        # Timer: Calls the timer_callback function at 10 Hz
+        self.timer = rospy.Timer(rospy.Duration(TIME_STEP), self.timer_callback)
 
         # Publisher
         self.cmd_vel_publisher = rospy.Publisher('cmd_vel', Twist, queue_size=10)
@@ -50,38 +57,53 @@ class PurePursuitController:
         rospy.on_shutdown(self.shutdown_callback)
 
         # Intialise data saving
-        self.time_list = [0]
-        self.x_list = [0]
-        self.y_list = [0]
-        # Get save path. Set the file name to the intial time
-        self.save_path = self.get_save_path()
-        intial_time = datetime.datetime.now()
-        self.formatted_time = intial_time.strftime('%y%m%d_%H_%M_%S')
+        if self.save_data == 1:
+            self.time_list = [0]
+            self.x_list = [0]
+            self.y_list = [0]
+            self.yaw_list = [0]
+            self.target_x_list = [0]
+            self.target_y_list = [0]
+            self.target_yaw_list = [0]
+            # Get save path. Set the file name to the intial time
+            self.save_path = self.get_save_path()
+            intial_time = datetime.datetime.now()
+            self.formatted_time = intial_time.strftime('%y%m%d_%H_%M_%S')
 
-        self.v_prev_error = 0.0
-
-    def path_callback(self, msg):
-        self.current_path = msg
+    def path_callback(self, data):
+        self.target_x = data.x
+        self.target_y = data.y
+        self.target_yaw = data.theta
 
     def odom_callback(self, data:Odometry):
         self.current_x = data.pose.pose.position.x
         self.current_y = data.pose.pose.position.y
         self.current_yaw = self.quat_to_euler(data.pose.pose.orientation)
-        self.current_vel = np.linalg.norm(np.array([data.twist.twist.linear.x, data.twist.twist.linear.y, data.twist.twist.linear.z]),2)
+
+    def timer_callback(self, event):
+        # Execute the control loop
+        v, omega, rho, alpha, beta = self.simple_controller(
+                                            self.current_x, self.current_y, self.current_yaw,
+                                            self.target_x,  self.target_y,  self.target_yaw)
 
         # Logging
-        rospy.loginfo("-"*25 + "Pure Pursuit Controller" + "-"*25 +
-                        f"\nx: {self.current_x:3.5f}, y: {self.current_y:3.5f}, yaw: {self.current_yaw:3.5f}")
+        if self.verbosity == 1:
+            rospy.loginfo("-"*25 + "Pure Pursuit Controller" + "-"*25 +
+                        f"\nx: {self.current_x:3.5f}, y: {self.current_y:3.5f}, yaw: {self.current_yaw:3.5f}" +
+                        f"\nalpha: {alpha:3.5f}, beta: {beta:3.5f}, rho: {rho:3.5f}" +
+                        f"\nv: {v:3.5f}, omega: {omega:3.5f}"
+                        f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.target_yaw:3.5f})" + 
+                        "\n")
 
         # Data saving
-        self.time_list.append(self.time_list[-1] + TIME_STEP)
-        self.x_list.append(self.current_x)
-        self.y_list.append(self.current_y)
-
-        # Execute the control loop
-        waypoints = [(0, 0)]
-        v, omega = self.pure_pursuit_control(self.current_x, self.current_y, self.current_yaw,
-                                             waypoints, 0.5, 0.5, 0.1)
+        if self.save_data == 1:
+            self.time_list.append(self.time_list[-1] + TIME_STEP)
+            self.x_list.append(self.current_x)
+            self.y_list.append(self.current_y)
+            self.yaw_list.append(self.current_yaw)
+            self.target_x_list.append(self.target_x)
+            self.target_y_list.append(self.target_y)
+            self.target_yaw_list.append(self.target_yaw)
         
         # Publish the velocity command
         self.cmd_vel_publisher.publish(
@@ -91,6 +113,40 @@ class PurePursuitController:
             )
         )
 
+    def simple_controller(self, x, y, yaw, tx, ty, tyaw):
+        # https://www.bilibili.com/video/BV19C4y1U7TE/?share_source=copy_web&vd_source=53bbd60e60dc232b7e76c75b2d1024c5
+        # Compute pose error
+        ex     = tx - x
+        ey     = ty - y
+        etheta = PurePursuitController.get_error_theta(tyaw, yaw)
+
+        # Map from global to robot frame in polar coordinates
+        # The linear distance to the goal
+        rho = math.sqrt(ex**2 + ey**2)  
+        # The angle between the goal theta and the current position of the robot
+        beta = math.atan2(ey, ex)
+        # Intended angle between the robot and the direction of rho
+        alpha = PurePursuitController.get_error_theta(beta, yaw)
+
+        # Controller parameters
+        # Gains
+        P_rho   = 0.4
+        P_theta  = 0.4 if rho < 0.1 else 0.1
+        # adjusting alpha is useless if too close to the goal
+        P_alpha = 0.1 if rho > 0.1 else 0
+
+        # Orientation considerations
+        # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
+        if alpha > -math.pi / 2 and alpha < math.pi / 2:
+            # We define that the robot is facing the goal
+            v = P_rho * rho
+        else:
+            # The robot is facing the opposite direction
+            v = -P_rho * rho
+        omega = P_alpha * alpha + P_theta * etheta
+
+        return v, omega, rho, alpha, beta
+
     @staticmethod
     def pure_pursuit_control(x, y, theta, waypoints, lookahead_distance, max_velocity, stopping_threshold):
         # Calculate distance to the final waypoint
@@ -99,10 +155,18 @@ class PurePursuitController:
 
         # Stop if close to the final waypoint
         if distance_to_final <= stopping_threshold:
-            return 0, 0  # Stop the robot by setting velocities to zero
+            rospy.logwarn("waypoint reached")
+            # The current has arrived, move to the next point
+            return 0, 0, True
         
         # Find the target point in the lookahead distance
-        target_point = PurePursuitController.find_target_point(x, y, waypoints, lookahead_distance)
+        # target_point, point_within_L = PurePursuitController.find_target_point(x, y, waypoints, lookahead_distance)
+        target_point = final_waypoint
+
+        # Stop if no waypoint is within the lookahead distance
+        # if not point_within_L:
+        #     rospy.logwarn("No waypoint within lookahead distance")
+        #     return 0, 0, False  # Stop the robot by setting velocities to zero
         
         # Calculate the angle to the target point
         target_angle = np.arctan2(target_point[1] - y, target_point[0] - x)
@@ -115,12 +179,31 @@ class PurePursuitController:
         # Constant velocity assumption
         v = max_velocity
 
-        return v, omega
+        return v, omega, False
+
+    ##############################################################################################################
+    ############################## Untilities ####################################################################
+    ##############################################################################################################
     
     @staticmethod
-    def find_target_point(x, y, waypoints, L):
+    def get_error_theta(desired_theta, current_theta):
+        # for any theta, it is the same if -2pi or 2pi
+        # We need two reference thetas, one in the positive and one in the negative direction
+        desired_theta_neg = desired_theta - 2 * math.pi if desired_theta > 0 else desired_theta
+        desired_theta_pos = desired_theta + 2 * math.pi if desired_theta < 0 else desired_theta
+        
+        # Always calculate the error based on the current theta negativity
+        error_theta = desired_theta_neg - current_theta if current_theta < 0 else desired_theta_pos - current_theta
+
+        return error_theta
+
+    @staticmethod
+    def find_target_point(x, y, waypoints, look_ahead_distance):
+        closest_point = None
+        point_within_L = False
+        
         for i in range(len(waypoints) - 1):
-            # Line segment from current waypoint to next waypoint
+            # Vectors for the current waypoint and next waypoint
             start = np.array(waypoints[i])
             end = np.array(waypoints[i + 1])
 
@@ -129,77 +212,24 @@ class PurePursuitController:
             end_vector = end - np.array([x, y])
 
             # Projection factor
-            t = np.dot(end_vector - start_vector, start_vector) / np.linalg.norm(end_vector - start_vector)**2
+            segment_vector = end - start
+            start_to_robot_vector = np.array([x, y]) - start
+            t = np.dot(segment_vector, start_to_robot_vector) / np.dot(segment_vector, segment_vector)
             t = np.clip(t, 0, 1)
 
             # Closest point to robot on segment
-            closest_point = start + t * (end_vector - start_vector)
-            distance = np.linalg.norm(closest_point - np.array([x, y]))
+            potential_closest_point = start + t * (end_vector - start_vector)
+            distance = np.linalg.norm(potential_closest_point - np.array([x, y]))
 
             # Check if the closest point is within the lookahead distance
-            if distance <= L:
-                return closest_point
-            
-        return waypoints[-1]  # Return the last waypoint if none are within L
+            if closest_point is None or distance < np.linalg.norm(closest_point - np.array([x, y])):
+                closest_point = potential_closest_point
+            if distance <= look_ahead_distance:
+                point_within_L = True
+                return closest_point, True
 
-    def control_loop(self):
-        if not self.current_path or not self.current_pose:
-            return  # Do nothing if no path or pose yet
+        return closest_point, point_within_L  # Return the last or closest waypoint and flag
 
-        # Find the closest path point ahead of the robot by at least the look-ahead distance
-        closest_point = None
-        min_distance = float('inf')
-
-        for pose in self.current_path.poses:
-            # Calculate the distance between the robot and the path point
-            dx = pose.pose.position.x - self.current_pose.position.x
-            dy = pose.pose.position.y - self.current_pose.position.y
-            distance = math.sqrt(dx**2 + dy**2)
-
-            # Update the closest point if needed
-            if distance < min_distance and distance > self.look_ahead_distance:
-                min_distance = distance
-                closest_point = pose.pose
-
-        if closest_point is None:
-            rospy.loginfo("No valid look-ahead point found.")
-            return
-
-        # Calculate the steering angle needed to reach the look-ahead point
-        angle_to_point = math.atan2(closest_point.position.y - self.current_pose.position.y,
-                                    closest_point.position.x - self.current_pose.position.x)
-
-        # Calculate robot's current yaw from quaternion
-        orientation_q = self.current_pose.orientation
-        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
-        (_, _, yaw) = tf.transformations.euler_from_quaternion(orientation_list)
-
-        # Steering command
-        angle_diff = angle_to_point - yaw
-        curvature = 2 * math.sin(angle_diff) / self.look_ahead_distance
-        velocity_command = Twist()
-
-        # Simple proportional controller for speed (can be replaced with a more sophisticated controller)
-        velocity_command.linear.x = 0.5 * max(0, 1 - abs(angle_diff))  # Slow down on sharp turns
-        velocity_command.angular.z = curvature
-
-        # Logging
-        rospy.loginfo("-"*25 + "Pure Pursuit Controller" + "-"*25 + 
-                     f"\nx: {self.current_pose.position.x:3.5f}, y: {self.current_pose.position.y:3.5f}" + 
-                     f"\nyaw: {yaw:3.5f}, angle_to_point: {angle_to_point:3.5f}, curvature: {curvature:3.5f}" +
-                     f"\nclosest_point: ({closest_point.position.x:3.5f}, {closest_point.position.y:3.5f})")
-        
-        # Data saving
-        self.time_list.append(self.time_list[-1] + TIME_STEP)
-        self.x_list.append(self.current_pose.position.x)
-        self.y_list.append(self.current_pose.position.y)
-
-        # Publish the velocity command
-        self.cmd_vel_publisher.publish(velocity_command)
-
-    ##############################################################################################################
-    ############################## Untilities ####################################################################
-    ##############################################################################################################
     @staticmethod
     def quat_to_euler(quat):
         if quat is not None:
@@ -213,18 +243,24 @@ class PurePursuitController:
     ##############################################################################################################
     def shutdown_callback(self):
         rospy.loginfo(f"Shutting down node {self.node_name}....")
-        rospy.loginfo(f"Saving Data To {self.save_path}....")
-        self.plot()
-        self.data()
-        rospy.loginfo("Saving Data Completed....")
+        if self.save_data == 1:
+            rospy.loginfo(f"Saving Data To {self.save_path}....")
+            self.plot()
+            self.plot_time()
+            self.data()
+            rospy.loginfo("Saving Data Completed....")
 
     def plot(self):
         # set the font size
         plt.rcParams.update({'font.size': 5})
-        
-        # plot right
+
+        # plot
         plt.plot(self.x_list, self.y_list, label='Robot Path')
-        # plt.plot(self.time_list, self.y_list, label='Planned Path')
+        plt.plot(self.target_x_list, self.target_y_list, label='Planned Path')
+        # Plot the directions
+        PurePursuitController.plot_vectors(self.x_list, self.y_list, self.yaw_list)
+
+        # Format the plot
         plt.xlabel('X Position (m)')
         plt.ylabel('Y Position (m)')
         plt.legend()
@@ -234,14 +270,68 @@ class PurePursuitController:
         # Save the figure
         plt.savefig(f'{self.save_path}pure_pursuit_controller_{self.formatted_time}.png', format='png', dpi=300)
 
+    def plot_time(self):
+        # set the font size
+        plt.rcParams.update({'font.size': 5})
+
+        # plot
+        ax1 = plt.subplot(3, 1, 1)
+        plt.plot(self.time_list, self.x_list, label='X Position')
+        plt.plot(self.time_list, self.target_x_list, label='X Target')
+        plt.ylabel('X Position (m)')
+        plt.legend()
+        ax1.grid(True)
+
+        ax2 = plt.subplot(3, 1, 2)
+        plt.plot(self.time_list, self.y_list, label='Y Position')
+        plt.plot(self.time_list, self.target_y_list, label='Y Target')
+        plt.ylabel('Y Position (m)')
+        plt.legend()
+        ax2.grid(True)
+
+        ax3 = plt.subplot(3, 1, 3)
+        plt.plot(self.time_list, self.yaw_list, label='Yaw Position')
+        plt.plot(self.time_list, self.target_yaw_list, label='Yaw Target')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Yaw (rad)')
+        plt.legend()
+        ax3.grid(True)
+
+        # Save the figure
+        plt.savefig(f'{self.save_path}motion_{self.formatted_time}.png', format='png', dpi=300)
+
+    @staticmethod
+    def plot_vectors(x_list, y_list, theta_radians, length=0.1, num=10):
+        # Truncate
+        x_list = PurePursuitController.slice_evenly(x_list, num)
+        y_list = PurePursuitController.slice_evenly(y_list, num)
+        theta_radians = PurePursuitController.slice_evenly(theta_radians, num)
+        
+        # Calculate the components of the vectors
+        dx = length * np.cos(theta_radians)
+        dy = length * np.sin(theta_radians)
+
+        # Plot the vectors
+        plt.quiver(x_list, y_list, dx, dy, angles='xy', scale_units='xy', scale=1)
+
+    @staticmethod
+    def slice_evenly(original_list, number_of_elements):
+        length = len(original_list)
+        print("length: ", length)
+        step = length // number_of_elements
+        # sliced_list = 
+        return original_list[0::step]
+        #  sliced_list[:number_of_elements]
+
     def data(self):
         with open(f'{self.save_path}pure_pursuit_controller_{self.formatted_time}.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Time (s)', 'X Position (m)', 'Y Position (m)'])
+            writer.writerow(['Time (s)', 'X Position (m)', 'Y Position (m)', "Yaw (rad)"])
             for i in range(len(self.time_list)):
-                writer.writerow([self.time_list[i], self.x_list[i], self.y_list[i]])
+                writer.writerow([self.time_list[i], self.x_list[i], self.y_list[i], self.yaw_list[i]])
 
-    def get_save_path(self):
+    @staticmethod
+    def get_save_path():
         rospack = rospkg.RosPack()
         return rospack.get_path("controller") + '/src/data/'
 

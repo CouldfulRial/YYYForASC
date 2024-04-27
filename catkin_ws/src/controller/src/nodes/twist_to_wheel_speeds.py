@@ -33,6 +33,10 @@ class Twist2WheelSpeeds:
         # Publisher
         self.duty_cycle_pub = rospy.Publisher('cmd_speeds', LeftRightFloat32, queue_size=10)
 
+        # Initialise the variables
+        self.v = 0
+        self.omega = 0
+
     def cmd_vel_callback(self, data):  # Topic at 10Hz
         self.v = data.linear.x
         self.omega = data.angular.z

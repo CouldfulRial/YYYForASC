@@ -159,11 +159,16 @@ class MotionController:
 
         return v, omega
     
-    def controller2(self, ex, ey, etheta, theta):
+    def controller2(self, x, y, yaw, tx, ty, tyaw,):
         '''
         This implementation is based on the website:
         https://www.bilibili.com/video/BV19C4y1U7TE/?share_source=copy_web&vd_source=53bbd60e60dc232b7e76c75b2d1024c5
         '''
+        # Compute pose error
+        ex     = tx - x
+        ey     = ty - y
+        etheta = self.get_error_theta(tyaw, yaw)
+
         # Controller parameters
         # Gains
         k_rho   = 0.05
@@ -177,7 +182,7 @@ class MotionController:
         # The angle between the goal theta and the current position of the robot
         self.beta = atan2(ey, ex)
         # Intended angle between the robot and the direction of rho
-        self.alpha = self.get_error_theta(self.beta, theta)
+        self.alpha = self.get_error_theta(self.beta, yaw)
 
         # Orientation considerations
         # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return

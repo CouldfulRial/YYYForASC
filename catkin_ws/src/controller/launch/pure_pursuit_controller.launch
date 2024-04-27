@@ -61,8 +61,17 @@
 		required = "true">
 
 		<param name     = "verbosity" value = "0" />
-		<param name     = "save_data" value = "1" />
-		<param name     = "debug" value = "1" />
+		<param name     = "save_data" value = "0" />
+		<param name     = "debug" value = "0" />
+	</node>
+
+	<!-- Twist to Wheel Speeds -->
+	<node 
+		pkg             = "controller"
+		type            = "twist_to_wheel_speeds.py"
+		name            = "twist_to_wheel_speeds"
+		output          = "screen"
+		required = "true">
 	</node>
 
 	<!-- Wheel Odometry -->
@@ -71,7 +80,29 @@
 		name            = "wheel_odometry"
 		output          = "screen">
 
+		<param name     = "verbosity" value = "0" />
+	</node>
+
+	<!-- Pure Pursuit Controller -->
+	<node 
+		pkg             = "controller"
+		type            = "pure_pursuit_controller.py"
+		name            = "pure_pursuit_controller"
+		output          = "screen"
+		required = "true">
+
 		<param name     = "verbosity" value = "1" />
+		<param name     = "save_data" value = "1" />
+		<param name     = "simulate" value = "0" />
+	</node>
+
+	<!-- Task Level Controller -->
+	<node 
+		pkg             = "navigation"
+		type            = "task_level_controller.py"
+		name            = "task_level_controller"
+		output          = "screen"
+		required = "true">
 	</node>
 
 </launch>

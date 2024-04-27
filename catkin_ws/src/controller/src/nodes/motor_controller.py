@@ -48,7 +48,7 @@ class MotorController:
 
         # Subscribers
         if self.debug == 0:
-            self.ref_speed_sub = rospy.Subscriber('cmd_speeds', Twist, self.ref_speeds_callback)
+            self.ref_speed_sub = rospy.Subscriber('cmd_speeds', LeftRightFloat32, self.ref_speeds_callback)
         self.mes_speed_sub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.mes_speeds_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz

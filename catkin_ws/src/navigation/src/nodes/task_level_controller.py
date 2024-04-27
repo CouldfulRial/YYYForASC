@@ -20,14 +20,7 @@ ERROR_ANGULAR = pi / 100
 
 # Path
 PATH = [
-    Pose2D(0.5, 0, 0),
-    Pose2D(0.5, 0, pi/2),
-    Pose2D(0.5, 0.5, pi/2),
-    Pose2D(0.5, 0.5, pi),
-    Pose2D(0, 0.5, pi),
-    Pose2D(0, 0.5, -pi/2),
-    Pose2D(0, 0, -pi/2),
-    Pose2D(0, 0, 0)
+    Pose2D(1, 0, 0)#, Pose2D(1, 0, pi), Pose2D(0, 0, pi),
 ]
 
 class TaskLevelController:
@@ -50,10 +43,7 @@ class TaskLevelController:
         self.target = Pose2D(0, 0, 0)
 
         # Initialise states
-        # self.prev_state = "MOVE_FORWARD"
-        # self.state = "MOVE_FORWARD"
         self.state = 0
-        self.pose_n = 0
 
     def timer_callback(self, event):
         # State action
@@ -64,33 +54,6 @@ class TaskLevelController:
             if self.state == len(PATH):
                 self.state -= 1
 
-        # # State transition logic
-        # if self.state == "MOVE_FORWARD" and self.reached_target(1, 1, pi/2):
-        #     self.state = "TURN_AROUND"
-
-        # elif self.state == "TURN_AROUND" and self.reached_target(0, 0, 0):
-        #     self.state = "MOVE_BACKWARD"
-
-        # elif self.state == "MOVE_BACKWARD" and self.reached_target(0, 0, 0):
-        #         self.state = "STOP"
-
-        # else:
-        #     self.state = self.state
-
-        # # State action logic
-        # if self.state == "MOVE_FORWARD":
-        #     self.target = Pose2D(1, 1, pi/2)
-
-        # elif self.state == "TURN_AROUND":
-        #     self.target = Pose2D(1, 0, pi)
-
-        # elif self.state == "MOVE_BACKWARD":
-        #     self.target = Pose2D(0, 0, pi)
-
-        # else:  # Stop
-        #     self.target = Pose2D(0, 0, pi)
-
-        # Publish the target pose
         self.pos_pub.publish(self.target)
         # rospy.loginfo("-"*25 + "FSM" + "-"*25 + 
         #               f"\nState: {self.state}" + 
@@ -102,9 +65,6 @@ class TaskLevelController:
         self.current_pose_y = data.pose.pose.position.y
         self.current_theta = data.pose.pose.orientation
         self.current_theta = self.quat_to_euler(self.current_theta)
-        # map to [0, 2pi]
-        # if self.current_theta < 0:
-        #     self.current_theta += 2 * pi
 
     @staticmethod
     def quat_to_euler(quat):
@@ -120,12 +80,6 @@ class TaskLevelController:
             abs(self.current_theta - pose.theta) < ERROR_ANGULAR):
             return True
         return False
-        # if (abs(self.current_pose_x - x) < ERROR_X and
-        #     abs(self.current_pose_y - y) < ERROR_Y and
-        #     abs(self.current_theta - theta) < ERROR_ANGULAR):
-        #     return True
-        # return False
-      
 
 if __name__ == '__main__':
     try:
