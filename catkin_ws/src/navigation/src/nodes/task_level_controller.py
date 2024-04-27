@@ -14,13 +14,13 @@ import tf.transformations
 from math import pi
 
 # Define hyperparameters
-ERROR_X = 0.05
-ERROR_Y = 0.05
-ERROR_ANGULAR = pi / 100
+ERROR_X = 0.15
+ERROR_Y = 0.15
+ERROR_ANGULAR = pi / 50
 
 # Path
 PATH = [
-    Pose2D(1, 0, 0)#, Pose2D(1, 0, pi), Pose2D(0, 0, pi),
+    Pose2D(5, 0, 0), Pose2D(5, 0, pi), Pose2D(0, 0, pi),
 ]
 
 class TaskLevelController:
@@ -77,9 +77,21 @@ class TaskLevelController:
     def reached_target(self, pose:Pose2D):
         if (abs(self.current_pose_x - pose.x) < ERROR_X and
             abs(self.current_pose_y - pose.y) < ERROR_Y and
-            abs(self.current_theta - pose.theta) < ERROR_ANGULAR):
+            abs(self.get_error_theta(pose.theta, self.current_theta)) < ERROR_ANGULAR):
             return True
         return False
+    
+    @staticmethod
+    def get_error_theta(desired_theta, current_theta):
+        # for any theta, it is the same if -2pi or 2pi
+        # We need two reference thetas, one in the positive and one in the negative direction
+        desired_theta_neg = desired_theta - 2 * pi if desired_theta > 0 else desired_theta
+        desired_theta_pos = desired_theta + 2 * pi if desired_theta < 0 else desired_theta
+        
+        # Always calculate the error based on the current theta negativity
+        error_theta = desired_theta_neg - current_theta if current_theta < 0 else desired_theta_pos - current_theta
+
+        return error_theta
 
 if __name__ == '__main__':
     try:

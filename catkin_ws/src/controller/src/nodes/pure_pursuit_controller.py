@@ -16,6 +16,7 @@ from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Twist, Vector3, Pose2D
 import tf
 import math
+from math import pi
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -82,17 +83,17 @@ class PurePursuitController:
 
     def timer_callback(self, event):
         # Execute the control loop
-        v, omega, rho, alpha, beta = self.simple_controller(
-                                            self.current_x, self.current_y, self.current_yaw,
-                                            self.target_x,  self.target_y,  self.target_yaw)
+        v, omega, rho, alpha, beta, self.P_rho, self.P_alpha, self.P_theta = self.simple_controller(
+            self.current_x, self.current_y, self.current_yaw,
+            self.target_x,  self.target_y,  self.target_yaw)
 
         # Logging
         if self.verbosity == 1:
             rospy.loginfo("-"*25 + "Pure Pursuit Controller" + "-"*25 +
-                        f"\nx: {self.current_x:3.5f}, y: {self.current_y:3.5f}, yaw: {self.current_yaw:3.5f}" +
-                        f"\nalpha: {alpha:3.5f}, beta: {beta:3.5f}, rho: {rho:3.5f}" +
+                        f"\nx: {self.current_x:3.5f}, y: {self.current_y:3.5f}, yaw: {self.current_yaw/pi:3.5f}pi" +
+                        f"\nalpha: {alpha/pi:3.5f}pi, beta: {beta/pi:3.5f}pi, rho: {rho:3.5f}" +
                         f"\nv: {v:3.5f}, omega: {omega:3.5f}"
-                        f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.target_yaw:3.5f})" + 
+                        f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.target_yaw/pi:3.5f}pi)" + 
                         "\n")
 
         # Data saving
@@ -113,12 +114,13 @@ class PurePursuitController:
             )
         )
 
-    def simple_controller(self, x, y, yaw, tx, ty, tyaw):
+    @staticmethod
+    def simple_controller(x, y, yaw, tx, ty, tyaw):
         # https://www.bilibili.com/video/BV19C4y1U7TE/?share_source=copy_web&vd_source=53bbd60e60dc232b7e76c75b2d1024c5
         # Compute pose error
         ex     = tx - x
         ey     = ty - y
-        etheta = PurePursuitController.get_error_theta(tyaw, yaw)
+        etheta = PurePursuitController.wrap_angle(tyaw - yaw)
 
         # Map from global to robot frame in polar coordinates
         # The linear distance to the goal
@@ -126,76 +128,40 @@ class PurePursuitController:
         # The angle between the goal theta and the current position of the robot
         beta = math.atan2(ey, ex)
         # Intended angle between the robot and the direction of rho
-        alpha = PurePursuitController.get_error_theta(beta, yaw)
+        alpha = PurePursuitController.wrap_angle(beta - yaw)
 
         # Controller parameters
         # Gains
-        P_rho   = 0.4
-        P_theta  = 0.4 if rho < 0.1 else 0.1
+        P_rho   = 0.5 if rho > 0.1 else 0.01
+        P_theta  = 2 if rho < 0.1 else 0
         # adjusting alpha is useless if too close to the goal
-        P_alpha = 0.1 if rho > 0.1 else 0
+        P_alpha = 4 if rho > 0.1 else 0
 
         # Orientation considerations
         # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
-        if alpha > -math.pi / 2 and alpha < math.pi / 2:
+        # v = P_rho * rho
+        # omega = P_alpha * alpha + P_theta * etheta
+        if alpha > -pi / 2 and alpha < pi / 2:
             # We define that the robot is facing the goal
             v = P_rho * rho
+            omega = P_alpha * alpha + P_theta * etheta
         else:
             # The robot is facing the opposite direction
             v = -P_rho * rho
-        omega = P_alpha * alpha + P_theta * etheta
-
-        return v, omega, rho, alpha, beta
-
-    @staticmethod
-    def pure_pursuit_control(x, y, theta, waypoints, lookahead_distance, max_velocity, stopping_threshold):
-        # Calculate distance to the final waypoint
-        final_waypoint = np.array(waypoints[-1])
-        distance_to_final = np.linalg.norm(final_waypoint - np.array([x, y]))
-
-        # Stop if close to the final waypoint
-        if distance_to_final <= stopping_threshold:
-            rospy.logwarn("waypoint reached")
-            # The current has arrived, move to the next point
-            return 0, 0, True
+            sign_alpha = 1 if alpha < 0 else -1
+            omega = P_alpha * sign_alpha * (pi - abs(alpha)) + P_theta * etheta
         
-        # Find the target point in the lookahead distance
-        # target_point, point_within_L = PurePursuitController.find_target_point(x, y, waypoints, lookahead_distance)
-        target_point = final_waypoint
-
-        # Stop if no waypoint is within the lookahead distance
-        # if not point_within_L:
-        #     rospy.logwarn("No waypoint within lookahead distance")
-        #     return 0, 0, False  # Stop the robot by setting velocities to zero
-        
-        # Calculate the angle to the target point
-        target_angle = np.arctan2(target_point[1] - y, target_point[0] - x)
-        angle_difference = target_angle - theta
-        angle_difference = (angle_difference + np.pi) % (2 * np.pi) - np.pi  # Normalize angle to [-pi, pi]
-
-        # Control law for angular velocity
-        omega = 2 * max_velocity * np.sin(angle_difference) / lookahead_distance
-        
-        # Constant velocity assumption
-        v = max_velocity
-
-        return v, omega, False
+        v = np.clip(v, -0.5, 0.5)
+        return v, omega, rho, alpha, beta, P_rho, P_alpha, P_theta
 
     ##############################################################################################################
     ############################## Untilities ####################################################################
     ##############################################################################################################
     
     @staticmethod
-    def get_error_theta(desired_theta, current_theta):
-        # for any theta, it is the same if -2pi or 2pi
-        # We need two reference thetas, one in the positive and one in the negative direction
-        desired_theta_neg = desired_theta - 2 * math.pi if desired_theta > 0 else desired_theta
-        desired_theta_pos = desired_theta + 2 * math.pi if desired_theta < 0 else desired_theta
-        
-        # Always calculate the error based on the current theta negativity
-        error_theta = desired_theta_neg - current_theta if current_theta < 0 else desired_theta_pos - current_theta
-
-        return error_theta
+    def wrap_angle(angle):
+        # Angle wrapping
+        return (angle + pi) % (2 * pi) - pi
 
     @staticmethod
     def find_target_point(x, y, waypoints, look_ahead_distance):
@@ -264,6 +230,7 @@ class PurePursuitController:
         plt.xlabel('X Position (m)')
         plt.ylabel('Y Position (m)')
         plt.legend()
+        plt.title(f"Position Plot\n P_rho={self.P_rho}, P_alpha={self.P_alpha}, P_theta={self.P_theta}")
         plt.grid(True)
         plt.axis('equal')
 
@@ -279,6 +246,7 @@ class PurePursuitController:
         plt.plot(self.time_list, self.x_list, label='X Position')
         plt.plot(self.time_list, self.target_x_list, label='X Target')
         plt.ylabel('X Position (m)')
+        plt.title(f"Trakcing Plot\n P_rho={self.P_rho}, P_alpha={self.P_alpha}, P_theta={self.P_theta}")
         plt.legend()
         ax1.grid(True)
 

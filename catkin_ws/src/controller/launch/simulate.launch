@@ -1,0 +1,25 @@
+<launch>
+
+	<!-- Pure Pursuit Controller -->
+	<node 
+		pkg             = "controller"
+		type            = "pure_pursuit_controller.py"
+		name            = "pure_pursuit_controller"
+		output          = "screen"
+		required = "true">
+
+		<param name     = "verbosity" value = "1" />
+		<param name     = "save_data" value = "1" />
+		<param name     = "simulate" value = "0" />
+	</node>
+
+	<!-- Task Level Controller -->
+	<node 
+		pkg             = "navigation"
+		type            = "task_level_controller.py"
+		name            = "task_level_controller"
+		output          = "screen"
+		required = "true">
+	</node>
+
+</launch>
