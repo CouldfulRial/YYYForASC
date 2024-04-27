@@ -164,6 +164,8 @@ include_directories(
 catkin_install_python(PROGRAMS
   src/nodes/wheel_odometry.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  src/nodes/vision_based_localisation.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 ## Mark executables for installation

@@ -37,7 +37,7 @@ class WheelOdom:
         self.sub_speeds = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.mes_speeds_callback)
 
         # Initialise the publisher and tf broadcaster
-        self.odom_pub = rospy.Publisher("wodom", Odometry, queue_size=50)  # idk why 50 here, but every single example uses 50
+        self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=50)  # idk why 50 here, but every single example uses 50
         self.odom_broadcaster = tf.TransformBroadcaster()
         
         # Initialise the inertial pose
