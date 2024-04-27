@@ -13,7 +13,7 @@ import rospy
 from math import pi, sin, cos, sqrt, atan2
 import tf.transformations
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import Pose2D, Twist, Vector3
 from asclinic_pkg.msg  import LeftRightFloat32
 import matplotlib.pyplot as plt
 
@@ -29,25 +29,24 @@ EPSILLON = 0.1
 class MotionController:
     def __init__(self):
         # Get user parameter
-        self.verbosity       = rospy.get_param('~verbosity',       'default_value')
-        self.plot            = rospy.get_param('~plot',            'default_value')
-        self.controller_type = rospy.get_param('~controller_type', 'default_value')
-
+        self.verbosity       = 1
+        self.plot            = 1
+        self.controller_type = 2
         rospy.init_node('motion_controller', anonymous=True)
 
         # Subscriber to the Odometry messages
         # odom is publishing at 10Hz
         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
-        self.pos_sub = rospy.Subscriber('ref_pose', Pose2D, self.pose_callback)
+        # self.pos_sub = rospy.Subscriber('ref_pose', Pose2D, self.pose_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
 
         # Publisher for the reference wheel speeds
-        self.speed_pub = rospy.Publisher('reference_wheel_speeds', LeftRightFloat32, queue_size=10)
+        self.speed_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
         # Desired pose for testing
-        # self.desired_pose = Pose2D(x=5, y=0, theta=0)
+        self.desired_pose = Pose2D(x=5, y=0, theta=0)
 
         # Register the shutdown callback ==> plot
         rospy.on_shutdown(self.shutdown_callback)
@@ -75,7 +74,7 @@ class MotionController:
             self.rho   = 0
 
         # Initialise desired pose
-        self.desired_pose = Pose2D(0, 0, 0)
+        # self.desired_pose = Pose2D(0, 0, 0)
 
 
     def timer_callback(self, event):
@@ -104,36 +103,16 @@ class MotionController:
         controller = self.controller2
         v, omega = controller(error_x, error_y, error_theta, self.current_theta)
 
-
-        # Assuming a differential drive robot
-        # Convert from linear and angular velocity to wheel speeds
-        left_speed  = (v - omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
-        right_speed = (v + omega * HALF_WHEEL_BASE) / (WHEEL_RADIUS)
-
-        # Add saturation to both wheels
-        left_speed  = SPEED_LIMIT  if left_speed  > SPEED_LIMIT  else left_speed
-        left_speed  = -SPEED_LIMIT if left_speed  < -SPEED_LIMIT else left_speed
-        right_speed = SPEED_LIMIT  if right_speed > SPEED_LIMIT  else right_speed
-        right_speed = -SPEED_LIMIT if right_speed < -SPEED_LIMIT else right_speed
-
-        controller_dependent_loginfo = ""
-        # if self.controller_type == 1:
-        #     controller_dependent_loginfo = f"\nex_robot: {self.ex_robot:3.2f}, ey_robot: {self.ey_robot:3.2f}, error_theta: {error_theta:3.2f}"
-        # elif self.controller_type == 2:
-        #     controller_dependent_loginfo = f"\nrho: {self.rho:3.2f}, beta: {self.beta:3.2f}, alpha: {self.alpha:3.2f}"
-
         # Display log
         if self.verbosity == 1:
             rospy.loginfo("-"*25 + "Motion Controller" + "-"*25 + 
                         f"\nUsing {controller.__name__}" +
                         f"\ndesired_pose_x: {self.desired_pose.x:3.2f}, desired_pose_y: {self.desired_pose.y:3.2f}, desired_theta: {self.desired_pose.theta:3.2f}" + 
                         f"\ncurrent_pose_x: {self.current_pose_x:3.2f}, current_pose_y: {self.current_pose_y:3.2f}, current_theta: {self.current_theta:3.2f}" + 
-                        controller_dependent_loginfo + 
-                        f"\nv:              {v:3.2f}, omega: {omega:3.2f}" +
-                        f"\nleft_speed:     {left_speed:3.2f}, right_speed: {right_speed:3.2f}")
+                        f"\nv:              {v:3.2f}, omega: {omega:3.2f}")
 
         # Publish the calculated wheel speeds
-        self.speed_pub.publish(LeftRightFloat32(left=left_speed, right=right_speed))
+        self.speed_pub.publish(Twist(linear=Vector3(v, 0, 0), angular=Vector3(0, 0, omega)))
 
     def odom_callback(self, data):
         # Extract the current pose from the odometry message

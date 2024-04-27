@@ -193,12 +193,6 @@ class MotorController:
         # self.desired_left_speed += 0.5
         # self.desired_right_speed += 0.5
 
-    @staticmethod
-    def saturation(value, limit):
-        value = limit if value > limit else value
-        value = -limit if value < -limit else value
-        return value
-
 if __name__ == '__main__':
     controller = MotorController()
     rospy.spin()
