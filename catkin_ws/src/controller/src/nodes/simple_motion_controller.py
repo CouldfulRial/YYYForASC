@@ -26,7 +26,7 @@ TIME_STEP = 0.1  # s
 class PurePursuitController:
     def __init__(self):
         # Initialise node
-        self.node_name = 'pure_pursuit_controller'
+        self.node_name = 'simple_motion_controller'
         rospy.init_node(self.node_name, anonymous=True)
 
         # Get user parameter
@@ -162,39 +162,6 @@ class PurePursuitController:
     def wrap_angle(angle):
         # Angle wrapping
         return (angle + pi) % (2 * pi) - pi
-
-    @staticmethod
-    def find_target_point(x, y, waypoints, look_ahead_distance):
-        closest_point = None
-        point_within_L = False
-        
-        for i in range(len(waypoints) - 1):
-            # Vectors for the current waypoint and next waypoint
-            start = np.array(waypoints[i])
-            end = np.array(waypoints[i + 1])
-
-            # Vector from robot to start and end of segment
-            start_vector = start - np.array([x, y])
-            end_vector = end - np.array([x, y])
-
-            # Projection factor
-            segment_vector = end - start
-            start_to_robot_vector = np.array([x, y]) - start
-            t = np.dot(segment_vector, start_to_robot_vector) / np.dot(segment_vector, segment_vector)
-            t = np.clip(t, 0, 1)
-
-            # Closest point to robot on segment
-            potential_closest_point = start + t * (end_vector - start_vector)
-            distance = np.linalg.norm(potential_closest_point - np.array([x, y]))
-
-            # Check if the closest point is within the lookahead distance
-            if closest_point is None or distance < np.linalg.norm(closest_point - np.array([x, y])):
-                closest_point = potential_closest_point
-            if distance <= look_ahead_distance:
-                point_within_L = True
-                return closest_point, True
-
-        return closest_point, point_within_L  # Return the last or closest waypoint and flag
 
     @staticmethod
     def quat_to_euler(quat):

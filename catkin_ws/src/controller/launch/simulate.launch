@@ -3,8 +3,8 @@
 	<!-- Pure Pursuit Controller -->
 	<node 
 		pkg             = "controller"
-		type            = "pure_pursuit_controller.py"
-		name            = "pure_pursuit_controller"
+		type            = "simple_motion_controller.py"
+		name            = "simple_motion_controller"
 		output          = "screen"
 		required = "true">
 
