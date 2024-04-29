@@ -163,8 +163,8 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/nodes/wheel_odometry.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   src/nodes/vision_based_localisation.py
+  src/nodes/localisation.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
