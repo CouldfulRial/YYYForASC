@@ -164,7 +164,6 @@ include_directories(
 catkin_install_python(PROGRAMS
   src/nodes/motor_model.py
   src/nodes/motor_controller.py
-  src/nodes/motion_controller.py
   src/nodes/stop_motors.py
   src/nodes/twist_to_wheel_speeds.py
   src/nodes/simple_motion_controller.py
