@@ -83,7 +83,7 @@
 		<param name     = "verbosity" value = "0" />
 	</node>
 
-	<!-- Pure Pursuit Controller -->
+	<!-- Simple Motion Controller -->
 	<node 
 		pkg             = "controller"
 		type            = "simple_motion_controller.py"

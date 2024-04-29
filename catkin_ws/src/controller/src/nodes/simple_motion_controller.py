@@ -23,7 +23,7 @@ import numpy as np
 # Parmeters
 TIME_STEP = 0.1  # s
 
-class PurePursuitController:
+class SimpleMotionController:
     def __init__(self):
         # Initialise node
         self.node_name = 'simple_motion_controller'
@@ -89,7 +89,7 @@ class PurePursuitController:
 
         # Logging
         if self.verbosity == 1:
-            rospy.loginfo("-"*25 + "Pure Pursuit Controller" + "-"*25 +
+            rospy.loginfo("-"*25 + "Simple Motion Controller" + "-"*25 +
                         f"\nx: {self.current_x:3.5f}, y: {self.current_y:3.5f}, yaw: {self.current_yaw/pi:3.5f}pi" +
                         f"\nalpha: {alpha/pi:3.5f}pi, beta: {beta/pi:3.5f}pi, rho: {rho:3.5f}" +
                         f"\nv: {v:3.5f}, omega: {omega:3.5f}"
@@ -120,7 +120,7 @@ class PurePursuitController:
         # Compute pose error
         ex     = tx - x
         ey     = ty - y
-        etheta = PurePursuitController.wrap_angle(tyaw - yaw)
+        etheta = SimpleMotionController.wrap_angle(tyaw - yaw)
 
         # Map from global to robot frame in polar coordinates
         # The linear distance to the goal
@@ -128,7 +128,7 @@ class PurePursuitController:
         # The angle between the goal theta and the current position of the robot
         beta = math.atan2(ey, ex)
         # Intended angle between the robot and the direction of rho
-        alpha = PurePursuitController.wrap_angle(beta - yaw)
+        alpha = SimpleMotionController.wrap_angle(beta - yaw)
 
         # Controller parameters
         # Gains
@@ -191,7 +191,7 @@ class PurePursuitController:
         plt.plot(self.x_list, self.y_list, label='Robot Path')
         plt.plot(self.target_x_list, self.target_y_list, label='Planned Path')
         # Plot the directions
-        PurePursuitController.plot_vectors(self.x_list, self.y_list, self.yaw_list)
+        SimpleMotionController.plot_vectors(self.x_list, self.y_list, self.yaw_list)
 
         # Format the plot
         plt.xlabel('X Position (m)')
@@ -238,9 +238,9 @@ class PurePursuitController:
     @staticmethod
     def plot_vectors(x_list, y_list, theta_radians, length=0.1, num=10):
         # Truncate
-        x_list = PurePursuitController.slice_evenly(x_list, num)
-        y_list = PurePursuitController.slice_evenly(y_list, num)
-        theta_radians = PurePursuitController.slice_evenly(theta_radians, num)
+        x_list = SimpleMotionController.slice_evenly(x_list, num)
+        y_list = SimpleMotionController.slice_evenly(y_list, num)
+        theta_radians = SimpleMotionController.slice_evenly(theta_radians, num)
         
         # Calculate the components of the vectors
         dx = length * np.cos(theta_radians)
@@ -271,5 +271,5 @@ class PurePursuitController:
         return rospack.get_path("controller") + '/src/data/'
 
 if __name__ == '__main__':
-    controller = PurePursuitController()
+    controller = SimpleMotionController()
     rospy.spin()
