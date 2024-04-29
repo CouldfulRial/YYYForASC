@@ -20,7 +20,7 @@ ERROR_ANGULAR = pi / 50
 
 # Path
 PATH = [
-    Pose2D(5, 0, 0), Pose2D(5, 0, pi), Pose2D(0, 0, pi),
+    Pose2D(5, 0, 0) , Pose2D(5, 0, pi), Pose2D(0, 0, pi)#, Pose2D(0, 0, 0)
 ]
 
 class TaskLevelController:
@@ -28,7 +28,7 @@ class TaskLevelController:
         rospy.init_node('task_level_controller', anonymous=True)
 
         # Subscribed topics
-        self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
+        self.odom_sub = rospy.Subscriber('wodom', Odometry, self.odom_callback)
 
         # Timer: Calls the timer_callback function at 2 Hz
         self.timer = rospy.Timer(rospy.Duration(0.5), self.timer_callback)

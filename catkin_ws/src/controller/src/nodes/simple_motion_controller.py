@@ -46,7 +46,7 @@ class SimpleMotionController:
 
         # Subscribers
         self.path_subscriber = rospy.Subscriber('ref_pose', Pose2D, self.path_callback)
-        self.odom_subscriber = rospy.Subscriber('odom', Odometry, self.odom_callback)
+        self.odom_subscriber = rospy.Subscriber('wodom', Odometry, self.odom_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(TIME_STEP), self.timer_callback)
@@ -133,9 +133,9 @@ class SimpleMotionController:
         # Controller parameters
         # Gains
         P_rho   = 0.5 if rho > 0.1 else 0.01
-        P_theta  = 2 if rho < 0.1 else 0
+        P_theta  = 1 if rho < 0.1 else 0
         # adjusting alpha is useless if too close to the goal
-        P_alpha = 4 if rho > 0.1 else 0
+        P_alpha = 2.5 if rho > 0.1 else 0
 
         # Orientation considerations
         # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
@@ -151,7 +151,8 @@ class SimpleMotionController:
             sign_alpha = 1 if alpha < 0 else -1
             omega = P_alpha * sign_alpha * (pi - abs(alpha)) + P_theta * etheta
         
-        v = np.clip(v, -0.5, 0.5)
+        v     = np.clip(v    , -0.1, 0.2)
+        omega = np.clip(omega, -0.7, 0.7)
         return v, omega, rho, alpha, beta, P_rho, P_alpha, P_theta
 
     ##############################################################################################################

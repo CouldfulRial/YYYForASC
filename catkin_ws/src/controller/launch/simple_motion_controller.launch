@@ -74,14 +74,8 @@
 		required = "true">
 	</node>
 
-	<!-- Wheel Odometry -->
-	<node pkg           = "localisation"
-		type            = "wheel_odometry.py"
-		name            = "wheel_odometry"
-		output          = "screen">
-
-		<param name     = "verbosity" value = "0" />
-	</node>
+	<!-- Localisation -->
+	<include file="$(find localisation)/launch/localisation.launch" />
 
 	<!-- Simple Motion Controller -->
 	<node 
