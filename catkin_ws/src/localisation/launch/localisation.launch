@@ -1,0 +1,22 @@
+<launch>
+
+	<!-- This launch file launch the wheel odometry, the vision-based localisation and the fused localisation -->
+
+	<!-- Vision-based Localisation -->
+	<include file="$(find localisation)/launch/vision_based_localisation.launch" />
+
+	<!-- Wheel Odometry -->
+	<include file="$(find localisation)/launch/wheel_odometry.launch" />
+
+	<!-- Fused Localisation -->
+	<node
+		pkg="localisation"
+		type="localisation.py"
+		name="localisation"
+		output="screen"
+		required="true">
+
+		<param name     = "verbosity" value = "0" />
+	</node>
+
+</launch>

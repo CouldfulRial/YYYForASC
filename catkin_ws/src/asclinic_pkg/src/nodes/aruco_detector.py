@@ -334,8 +334,8 @@ class ArucoDetector:
         #   saved during the calibration procedure.
         # > Note the that values hardcoded here may give
         #   meaningless results for your camera
-        self.intrinic_camera_matrix = np.array( [[1367.60714,0,914.90439] , [0,1364.73360,574.61368] , [0,0,1]], dtype=float)
-        self.intrinic_camera_distortion  = np.array( [[ 7.314e-02, -8.678e-01, 5.13e-03, -1.159e-02, 0]], dtype=float)
+        self.intrinic_camera_matrix = np.array([[1431.18 , 0 ,944.928], [0.0, 1432.83, 541.449],[0.00000000e+00, 0.00000000e+00, 1.00000000e+00]], dtype=float)
+        self.intrinic_camera_distortion  = np.array([[0.06855, -0.3603, 0.0004304, -0.003662, 0.5415]], dtype=float)
 
         # Read the a camera frame as a double check of the properties
         # > Read the frame
