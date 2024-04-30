@@ -34,10 +34,11 @@ class ServoController:
         # Reset the servos
         rate = rospy.Rate(10)  # Define the rate of publishing (10 Hz in this case)
         start_time = rospy.Time.now()  # Record the start time
-        duration = rospy.Duration(1)  # Set the duration for which to publish
+        duration = rospy.Duration(2)  # Set the duration for which to publish
         
         while rospy.Time.now() - start_time < duration:
-            self.publish(0, 0)
+            self.publish_pan(0)
+            self.publish_tilt(0)
             rate.sleep()  # Sleep to maintain the publishing rate
 
         
@@ -50,7 +51,8 @@ class ServoController:
         self.publish(pan_angle, tilt_angle)
 
     def timer_callback(self, event):
-        pass
+        self.publish_pan(0)
+        self.publish_tilt(0)
 
     def publish(self, pan_ang, tilt_ang):
         # Convert the angles to pulse width
@@ -64,6 +66,30 @@ class ServoController:
                 channel=3,
                 pulse_width_in_microseconds=pan_pulse_width)
         )
+        # Tilt servo
+        self.pulse_width_pub.publish(
+            ServoPulseWidth(
+                channel=4,
+                pulse_width_in_microseconds=tilt_pulse_width)
+        )
+
+    def publish_pan(self, pan_ang):
+        # Convert the angles to pulse width
+        pan_pulse_width = ServoController.pan_get_pulse_width(pan_ang)
+
+        # Publish the pulse width
+        # Pan servo
+        self.pulse_width_pub.publish(
+            ServoPulseWidth(
+                channel=3,
+                pulse_width_in_microseconds=pan_pulse_width)
+        )
+
+    def publish_tilt(self, tilt_ang):
+        # Convert the angles to pulse width
+        tilt_pulse_width = ServoController.tilt_get_pulse_width(tilt_ang)
+
+        # Publish the pulse width
         # Tilt servo
         self.pulse_width_pub.publish(
             ServoPulseWidth(
