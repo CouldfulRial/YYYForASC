@@ -76,8 +76,8 @@ class Localisation:
         
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
-        self.sub = rospy.Subscriber('wodom', Odometry, self.wodom_callback)
-        self.sub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
+        self.wsub = rospy.Subscriber('wodom', Odometry, self.wodom_callback)
+        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
 
         # Timer: Calls the timer_callback function at frequency in Hz
         # The vodom will be published at 10Hz
@@ -87,19 +87,23 @@ class Localisation:
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=10)
 
         # Initialise parameters
-        self.x, self.y, self.psi = 0.0, 0.0, 0.0
+        self.x, self.y = 0.0, 0.0
+        self.orientation = Quaternion(*quaternion_from_euler(0, 0, 0))
 
-    def wodom_callback(self, data):
+    def wodom_callback(self, data:Odometry):
         # Extract the current pose from the odometry message
         # self.x = data.pose.pose.position.x
-        self.y = data.pose.pose.position.y
-        self.psi = data.pose.pose.orientation.z
+        # self.y = data.pose.pose.position.y
+        self.orientation = data.pose.pose.orientation
 
-    def vodom_callback(self, data):
+    def vodom_callback(self, data:Odometry):
         # Extract the current pose from the odometry message
         self.x = data.pose.pose.position.x
-        # self.y = data.pose.pose.position.y
-        # self.psi = data.pose.pose.orientation.z
+        self.y = data.pose.pose.position.y
+        # self.orientation = data.pose.pose.orientation.z
+
+        # if self.x == 0.0 and self.y == 0.0:
+        #     print("camera fails!!")
 
     def timer_callback(self, event):
         # Logging
@@ -122,9 +126,8 @@ class Localisation:
 
         # Set the position in the odometry message
         odom_msg.pose.pose.position = Point(self.x, self.y, 0)
-        odom_quat = quaternion_from_euler(0, 0, self.psi)
-        odom_msg.pose.pose.orientation = Quaternion(*odom_quat)  # * is used to unpack the tuple
-
+        odom_msg.pose.pose.orientation = self.orientation
+        
         # Publish the odometry message
         self.odom_pub.publish(odom_msg)
 

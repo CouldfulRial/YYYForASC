@@ -14,13 +14,13 @@ import tf.transformations
 from math import pi
 
 # Define hyperparameters
-ERROR_X = 0.15
-ERROR_Y = 0.15
+ERROR_X = 0.2
+ERROR_Y = 0.4
 ERROR_ANGULAR = pi / 50
 
 # Path
 PATH = [
-    Pose2D(5, 0, 0) , Pose2D(5, 0, pi), Pose2D(0, 0, pi)#, Pose2D(0, 0, 0)
+    Pose2D(9, 0, 0), Pose2D(9, 0, pi), Pose2D(0, 0, pi)
 ]
 
 class TaskLevelController:
@@ -28,7 +28,7 @@ class TaskLevelController:
         rospy.init_node('task_level_controller', anonymous=True)
 
         # Subscribed topics
-        self.odom_sub = rospy.Subscriber('wodom', Odometry, self.odom_callback)
+        self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
 
         # Timer: Calls the timer_callback function at 2 Hz
         self.timer = rospy.Timer(rospy.Duration(0.5), self.timer_callback)
@@ -77,21 +77,14 @@ class TaskLevelController:
     def reached_target(self, pose:Pose2D):
         if (abs(self.current_pose_x - pose.x) < ERROR_X and
             abs(self.current_pose_y - pose.y) < ERROR_Y and
-            abs(self.get_error_theta(pose.theta, self.current_theta)) < ERROR_ANGULAR):
+            abs(self.wrap_angle(pose.theta - self.current_theta)) < ERROR_ANGULAR):
             return True
         return False
     
     @staticmethod
-    def get_error_theta(desired_theta, current_theta):
-        # for any theta, it is the same if -2pi or 2pi
-        # We need two reference thetas, one in the positive and one in the negative direction
-        desired_theta_neg = desired_theta - 2 * pi if desired_theta > 0 else desired_theta
-        desired_theta_pos = desired_theta + 2 * pi if desired_theta < 0 else desired_theta
-        
-        # Always calculate the error based on the current theta negativity
-        error_theta = desired_theta_neg - current_theta if current_theta < 0 else desired_theta_pos - current_theta
-
-        return error_theta
+    def wrap_angle(angle):
+        # Angle wrapping
+        return (angle + pi) % (2 * pi) - pi
 
 if __name__ == '__main__':
     try:

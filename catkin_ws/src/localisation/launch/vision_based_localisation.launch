@@ -85,9 +85,9 @@
 		type            = "vision_based_localisation.py"
 		name            = "vision_based_localisation"
 		output          = "screen"
-		required = "true">
+		required        = "true">
 
-		<param name     = "verbosity" value = "0" />
+		<param name     = "verbosity" value = "1" />
 	</node>
 
 	<!-- Camera Servo Controller -->
