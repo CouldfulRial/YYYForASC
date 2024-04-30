@@ -45,7 +45,7 @@ class WheelOdom:
 
     def mes_speeds_callback(self, data):
         # Update both the speeds
-        self.delta_theta_l = data.left * TIME_STEP * 1#.027
+        self.delta_theta_l = data.left * TIME_STEP * 1
         self.delta_theta_r = data.right * TIME_STEP
 
         # Map to v and omega
