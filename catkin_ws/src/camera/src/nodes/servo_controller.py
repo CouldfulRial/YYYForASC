@@ -54,25 +54,6 @@ class ServoController:
         self.publish_pan(0)
         self.publish_tilt(0)
 
-    def publish(self, pan_ang, tilt_ang):
-        # Convert the angles to pulse width
-        pan_pulse_width = ServoController.pan_get_pulse_width(pan_ang)
-        tilt_pulse_width = ServoController.tilt_get_pulse_width(tilt_ang)
-
-        # Publish the pulse width
-        # Pan servo
-        self.pulse_width_pub.publish(
-            ServoPulseWidth(
-                channel=3,
-                pulse_width_in_microseconds=pan_pulse_width)
-        )
-        # Tilt servo
-        self.pulse_width_pub.publish(
-            ServoPulseWidth(
-                channel=4,
-                pulse_width_in_microseconds=tilt_pulse_width)
-        )
-
     def publish_pan(self, pan_ang):
         # Convert the angles to pulse width
         pan_pulse_width = ServoController.pan_get_pulse_width(pan_ang)
@@ -108,7 +89,7 @@ class ServoController:
     def tilt_get_pulse_width(angle):
         # [0, 90]deg --> [500, 1500]us
         angle = np.clip(angle, 0, 90)
-        pw = angle * 10 + 500
+        pw = angle * 10 + 600
         return int(pw)
         
 if __name__ == '__main__':
