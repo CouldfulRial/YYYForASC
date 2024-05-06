@@ -6,7 +6,13 @@
 	<include file="$(find localisation)/launch/vision_based_localisation.launch" />
 
 	<!-- Wheel Odometry -->
-	<include file="$(find localisation)/launch/wheel_odometry.launch" />
+	<node pkg           = "localisation"
+		type            = "wheel_odometry.py"
+		name            = "wheel_odometry"
+		output          = "screen">
+
+		<param name     = "verbosity" value = "0" />
+	</node>
 
 	<!-- Fused Localisation -->
 	<node
