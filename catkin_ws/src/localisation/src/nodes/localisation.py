@@ -1,82 +1,49 @@
 #! /usr/bin/env python
 '''
-This node fuses the localisation data from odometry and vision odometry using a Kalman filter.
+This node fuses the localisation data from wodom and vodom using a Kalman filter.
 
 Subscribed topics:
-    wodom      [nav_msgs/Odometry]
-    vodom      [nav_msgs/Odometry]
+    mes_speeds   [asclinic_pkg/LeftRightFloat32]
+    vodom        [nav_msgs/Odometry]
 Published topics:
-    odom      [nav_msgs/Odometry]
+    odom         [nav_msgs/Odometry]
 '''
 import rospy
-# import numpy as np
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Quaternion
 from tf.transformations import quaternion_from_euler
+from asclinic_pkg.msg import LeftRightFloat32
+import numpy as np
+import tf
 # from filterpy.kalman import KalmanFilter
 
-# class RobotLocalisation:
-#     def __init__(self):
-#         rospy.init_node('robot_localisation')
-
-#         # Kalman filter setup
-#         self.kf = KalmanFilter(dim_x=2, dim_z=2)  # Assuming a 2D position state (x, y)
-#         self.kf.F = np.eye(2)  # State transition matrix
-#         self.kf.H = np.eye(2)  # Measurement matrix
-#         self.kf.x = np.zeros(2)  # Initial state
-#         self.kf.P *= 1000.  # Initial covariance
-#         self.kf.Q = np.eye(2) * 0.1  # Process noise
-#         self.R_odom = np.eye(2) * 0.6  # Measurement noise for odometry (40% confidence)
-#         self.R_vodom = np.eye(2) * 0.4  # Measurement noise for vision odometry (60% confidence)
-#         self.kf.R = self.R_odom  # Start with odometry measurement noise
-
-#         # Tracking camera operational status
-#         self.camera_operational = True
-
-#         # Subscribers
-#         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
-#         self.vodom_sub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
-
-#     def odom_callback(self, msg):
-#         current_odom = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
-#         self.kf.predict()  # Predict the next state based on the previous state
-#         self.kf.R = self.R_odom  # Use odometry covariance
-#         self.kf.update(current_odom)  # Update the state with odometry data
-#         self.publish_state()
-
-#     def vodom_callback(self, msg):
-#         if msg.header.frame_id:  # Check if the vision system is operational
-#             abs_position = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
-#             self.kf.predict()
-#             self.kf.R = self.R_vodom  # Use vision odometry covariance
-#             self.kf.update(abs_position)
-#             self.camera_operational = True
-#         else:
-#             self.camera_operational = False
-#             rospy.logwarn("Vision system failure detected. Relying on odometry.")
-#         self.publish_state()
-
-#     def publish_state(self):
-#         # Here, you would publish the fused state to a ROS topic
-#         # For simplicity, we're just logging it
-#         rospy.loginfo(f"Fused position: {self.kf.x}")
-
-#     def run(self):
-#         rospy.spin()
+X = 0
+Y = 1
+PSI = 2
+WHEEL_DIAMETER = 0.144  # m
+WHEEL_RADIUS = WHEEL_DIAMETER / 2
+WHEEL_BASE = 0.218  # m
+HALF_WHEEL_BASE = WHEEL_BASE / 2
+TIME_STEP = 0.1
+KL = 1
+KR = 1
 
 class Localisation:
-    def __init__(self):
+    def __init__(self): 
         # Initialise node
         self.node_name = 'localisation'
         rospy.init_node(self.node_name)
 
-        # Get user parameter
-        self.parm  = rospy.get_param(self.node_name)
-        self.verbosity = self.parm["verbosity"]
+        # Get user parameters
+        try:
+            self.parm  = rospy.get_param(self.node_name)
+            self.verbosity = self.parm["verbosity"]
+        except KeyError:
+            self.verbosity = 1
         
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
-        self.wsub = rospy.Subscriber('wodom', Odometry, self.wodom_callback)
+        self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)
         self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
 
         # Timer: Calls the timer_callback function at frequency in Hz
@@ -87,34 +54,89 @@ class Localisation:
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=10)
 
         # Initialise parameters
-        self.x, self.y = 0.0, 0.0
-        self.orientation = Quaternion(*quaternion_from_euler(0, 0, 0))
+        self.z_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t-1
+        self.z_t = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t
+        self.phat_t_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t given the previous CV update t-1
+        self.phat_t_given_t = np.array([0.0, 0.0, 0.0])  # pose estimate after fusion of odometry with CV update t
 
-    def wodom_callback(self, data:Odometry):
-        # Extract the current pose from the odometry message
-        # self.x = data.pose.pose.position.x
-        # self.y = data.pose.pose.position.y
-        self.orientation = data.pose.pose.orientation
+        # Covariance matrices
+        self.pose_cov_t_given_t = np.zeros((3, 3))  # Covariance of the pose estimate at time t given t
+        self.pose_cov_t_given_t_1 = np.zeros((3, 3))  # Covariance of the pose estimate at time t given t-1
+        self.pose_cov_t_1_given_t_1 = np.zeros((3, 3))  # Covariance of the pose estimate at time t-1 given t-1
+        # Update the following covariance matrix after measurements
+        self.cv_cov_t = np.eye(3)  # Covariance of the computer vision estimate at time t
+
+
+    def wodom_callback(self, data:LeftRightFloat32):
+        # Implement lecture L07 P10
+        # Extract the updated change in both wheels at t
+        # Update the pose estimate at t given the previous vodom z_t-1
+        delta_theta_l = data.left  * TIME_STEP
+        delta_theta_r = data.right * TIME_STEP
+
+        # Map to Delta_s, Delta_psi
+        Delta_s_t   = WHEEL_RADIUS / 2          * (delta_theta_l + delta_theta_r)
+        Delta_psi_t = WHEEL_RADIUS / WHEEL_BASE * (delta_theta_r - delta_theta_l)
+        inside = self.z_t_1[PSI] + Delta_psi_t / 2
+
+        # Update the predicted pose
+        self.phat_t_given_t_1 = self.z_t_1[X]   + Delta_s_t * np.cos(inside)
+        self.phat_t_given_t_1 = self.z_t_1[Y]   + Delta_s_t * np.sin(inside)
+        self.phat_t_given_t_1 = self.z_t_1[PSI] + Delta_psi_t
+
+        # Update the predicted covariance
+        self.update_pose_cov(delta_theta_l, delta_theta_r, inside, Delta_s_t)
+
+    def update_pose_cov(self, delta_theta_l, delta_theta_r, inside, Delta_s_t):
+        # This function implements lecture L05 P17 and P33
+        # Put the covariance of the wheel measurements into the return variable
+        theta_covariance = np.zeros((2, 2))  # Initialise the theta covariance matrix
+        theta_covariance[0, 0] = KL * abs(delta_theta_l)
+        theta_covariance[1, 1] = KR * abs(delta_theta_r)
+
+        # Put the covariance of the pose into the return variable
+        # Linearisation w.r.t. states
+        pose_jacobians = [  # 3x3
+            [1, 0, -Delta_s_t * np.sin(inside)],
+            [0, 1,  Delta_s_t * np.cos(inside)],
+            [0, 0,  1]
+        ]
+
+        # Linearisation w.r.t. inputs
+        r = WHEEL_RADIUS
+        b = HALF_WHEEL_BASE
+        theta_jacobians = [  # 3x2
+            [ r/2 * np.cos(inside) + r/(4*b) * Delta_s_t * np.sin(inside), r/2 * np.cos(inside) - r/(4*b) * Delta_s_t * np.sin(inside)],
+            [ r/2 * np.sin(inside) - r/(4*b) * Delta_s_t * np.cos(inside), r/2 * np.sin(inside) + r/(4*b) * Delta_s_t * np.cos(inside)],
+            [-r / (2*b),                                                   r / (2*b)]
+        ]
+
+        # Update the pose covariance matrix (3x3)
+        self.pose_cov_t_given_t_1 = pose_jacobians @ self.pose_cov_t_1_given_t_1 @ np.transpose(pose_jacobians) + theta_jacobians @ theta_covariance @ np.transpose(theta_jacobians)
 
     def vodom_callback(self, data:Odometry):
-        # Extract the current pose from the odometry message
-        self.x = data.pose.pose.position.x
-        self.y = data.pose.pose.position.y
-        # self.orientation = data.pose.pose.orientation.z
+        # Based on the vision-based localisation
+        # Extract the current pose z_t
+        x = data.pose.pose.position.x
+        y = data.pose.pose.position.y
+        psi = self.quat_to_euler(data.pose.pose.orientation)
 
-        # if self.x == 0.0 and self.y == 0.0:
-        #     print("camera fails!!")
+        # Update the current pose z_t, and z_t-1
+        self.z_t_1 = self.z_t
+        self.z_t = np.array([x, y, psi])
+
+        # Update Kalman gain Kt
+        Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
+
+        # Update the pose estimate
+        self.phat_t_given_t = self.phat_t_given_t_1 + Kt @ (self.z_t - self.phat_t_given_t_1)
+
+        # Update the covariance matrix
+        self.pose_cov_t_1_given_t_1 = self.pose_cov_t_given_t
+        self.pose_cov_t_given_t = self.pose_cov_t_given_t_1 - Kt @ (self.pose_cov_t_given_t_1 + self.cv_cov_t) @ np.transpose(Kt)
 
     def timer_callback(self, event):
-        # Logging
-        if self.verbosity == 1:
-            rospy.loginfo("-"*25 + "Localisation" + "-"*25 +
-                            f"\nself.x: {self.x:3.2f}, self.y: {self.y:3.2f}, self.psi: {self.psi:3.2f}")
-        
-        # Get current time
-        self.current_time = rospy.Time.now()
-        
-        # Publish odometry
+        # Publish the odom at a fixed rate
         self.publish_odom()
 
     def publish_odom(self):
@@ -124,12 +146,26 @@ class Localisation:
         odom_msg.header.frame_id = "odom"
         odom_msg.child_frame_id = "base_link"
 
+        # Get the current pose update
+        x = self.phat_t_given_t[X]
+        y = self.phat_t_given_t[Y]
+        psi = self.phat_t_given_t[PSI]
+
         # Set the position in the odometry message
-        odom_msg.pose.pose.position = Point(self.x, self.y, 0)
-        odom_msg.pose.pose.orientation = self.orientation
+        odom_msg.pose.pose.position = Point(x, y, 0)
+        odom_quat = quaternion_from_euler(0, 0, psi)
+        odom_msg.pose.pose.orientation = Quaternion(*odom_quat)  # * is used to unpack the tuple
         
         # Publish the odometry message
         self.odom_pub.publish(odom_msg)
+
+    @staticmethod
+    def quat_to_euler(quat):
+        if quat is not None:
+            euler = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+            return euler[2]  # return the yaw, which is the orientation around z-axis
+        else:
+            return 0  # If intialised to None, return 0
 
 if __name__ == '__main__':
     localisation_node = Localisation()
