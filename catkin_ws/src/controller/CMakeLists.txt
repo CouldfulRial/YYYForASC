@@ -167,6 +167,7 @@ catkin_install_python(PROGRAMS
   src/nodes/stop_motors.py
   src/nodes/twist_to_wheel_speeds.py
   src/nodes/simple_motion_controller.py
+  src/nodes/trajectory_tracker.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
