@@ -59,8 +59,9 @@ class Localisation:
         # Initialise parameters
         self.z_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t-1
         self.z_t = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t
-        self.phat_t_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t given the previous CV update t-1
         self.phat_t_given_t = np.array([0.0, 0.0, 0.0])  # pose estimate after fusion of odometry with CV update t
+        self.phat_t_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t given the previous CV update t-1
+        self.phat_t_1_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t-1 given the previous CV update t-1
 
         # Covariance matrices
         self.pose_cov_t_given_t = np.zeros((3, 3))  # Covariance of the pose estimate at time t given t
@@ -89,10 +90,10 @@ class Localisation:
         Delta_psi_t = WHEEL_RADIUS / WHEEL_BASE * (delta_theta_r - delta_theta_l)
         inside = self.z_t_1[PSI] + Delta_psi_t / 2
 
-        # Update the predicted pose
-        self.phat_t_given_t_1 = self.z_t_1[X]   + Delta_s_t * np.cos(inside)
-        self.phat_t_given_t_1 = self.z_t_1[Y]   + Delta_s_t * np.sin(inside)
-        self.phat_t_given_t_1 = self.z_t_1[PSI] + Delta_psi_t
+        # Update the predicted pose according to f_up
+        self.phat_t_given_t_1[X] = self.phat_t_1_given_t_1[X]   + Delta_s_t * np.cos(inside)
+        self.phat_t_given_t_1[Y] = self.phat_t_1_given_t_1[Y]   + Delta_s_t * np.sin(inside)
+        self.phat_t_given_t_1[PSI] = self.phat_t_1_given_t_1[PSI] + Delta_psi_t
 
         # Update the predicted covariance
         self.update_pose_cov(delta_theta_l, delta_theta_r, inside, Delta_s_t)
@@ -133,17 +134,18 @@ class Localisation:
 
         # Update the current pose z_t, and z_t-1
         self.z_t_1 = self.z_t
-        self.z_t = np.array([x, y, psi])
-
-        # Update Kalman gain Kt
         if not self.vodom_failure:
             # If the vision-based localisation is working
-            Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
+            self.z_t = np.array([x, y, psi])
         else:
-            # If the vision-based localisation fails
-            Kt = np.zeros((3, 3))
+            # If the vision-based localisation fails, use the last update from wodom only
+            self.z_t = self.phat_t_given_t_1
+
+        # Update Kalman gain Kt
+        Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
 
         # Update the pose estimate
+        self.phat_t_1_given_t_1 = self.phat_t_given_t
         self.phat_t_given_t = self.phat_t_given_t_1 + Kt @ (self.z_t - self.phat_t_given_t_1)
 
         # Update the covariance matrix

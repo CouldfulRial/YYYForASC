@@ -81,7 +81,11 @@ class VisionBasedLocalisation:
             distance_vec = marker.tvec  # T
             rotation_vec = marker.rvec  # R
 
-            if id == 26 or id > 28:
+            # If distance too far, discard
+            if distance_vec[2] > 4:
+                continue
+            
+            if id == 26 or id > 14:
                 continue
 
             # Transformations
@@ -106,8 +110,8 @@ class VisionBasedLocalisation:
             self.y = np.mean(y_list)
             self.psi = np.mean(psi_list)
 
-        # Track the last updated time
-        self.last_recv = rospy.Time.now()
+            # Track the last updated time
+            self.last_recv = rospy.Time.now()
 
     def get_position(self, T, marker_id, theta):
         # Get marker position
@@ -116,14 +120,30 @@ class VisionBasedLocalisation:
         marker_Psi = self.markers[marker_id][PSI]
         marker_Psi = np.deg2rad(marker_Psi)  # Since the marker info is in deg
 
-        marker_x_wrt_c = T[2]
-        marker_y_wrt_c = -T[0]
-        
-        x = marker_x - marker_x_wrt_c
-        y = marker_y - marker_y_wrt_c
+        # Get psi
         psi = np.pi - theta + marker_Psi
         psi = self.wrap_angle(psi)
-        
+
+        # Decide x, y based on orientation
+        # Mapping Camera measure to world frame
+        if psi >= -np.pi/2 and psi <= np.pi/2: 
+           marker_x_wrt_c = T[2]*np.cos(psi)
+           marker_y_wrt_c = T[0]*np.cos(psi)
+           print('test',marker_y_wrt_c)
+        if psi <= -np.pi/2 or psi >= np.pi/2:
+           marker_x_wrt_c = T[2]*np.cos(psi+np.pi)
+           marker_y_wrt_c = T[0]*np.cos(psi+np.pi)
+           print('test',marker_y_wrt_c)
+        # Deside world frame distance
+        if marker_Psi >= np.pi/2:
+           print(marker_Psi)
+           x = marker_x - marker_x_wrt_c
+           y = marker_y + marker_y_wrt_c
+        if marker_Psi < np.pi/2:
+           print('right')
+           x = marker_x + marker_x_wrt_c
+           y = marker_y - marker_y_wrt_c
+           
         return x, y, psi
 
     def timer_callback(self, event):
