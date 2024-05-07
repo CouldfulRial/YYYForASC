@@ -3,18 +3,24 @@
 This node fuses the localisation data from wodom and vodom using a Kalman filter.
 
 Subscribed topics:
-    mes_speeds   [asclinic_pkg/LeftRightFloat32]
-    vodom        [nav_msgs/Odometry]
+    mes_speeds     [asclinic_pkg/LeftRightFloat32]
+    vodom          [nav_msgs/Odometry]
+    vodom_failure  [std_msgs/Bool]
 Published topics:
-    odom         [nav_msgs/Odometry]
+    odom           [nav_msgs/Odometry]
 '''
+# Core
 import rospy
+
+# Messages
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Quaternion
-from tf.transformations import quaternion_from_euler
 from asclinic_pkg.msg import LeftRightFloat32
+from std_msgs.msg import Bool
+
+# Algorithms
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 import numpy as np
-import tf
 # from filterpy.kalman import KalmanFilter
 
 X = 0
@@ -45,10 +51,7 @@ class Localisation:
         # rospy.Subscriber(topic_name, msg_type, callback_function)
         self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)
         self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
-
-        # Timer: Calls the timer_callback function at frequency in Hz
-        # The vodom will be published at 10Hz
-        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
+        self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
 
         # Publisher
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=10)
@@ -66,6 +69,13 @@ class Localisation:
         # Update the following covariance matrix after measurements
         self.cv_cov_t = np.eye(3)  # Covariance of the computer vision estimate at time t
 
+        # vodom failure flag
+        self.vodom_failure = False
+
+        # Timer: Calls the timer_callback function at frequency in Hz
+        # The vodom will be published at 10Hz
+        self.current_time = rospy.Time.now()
+        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
 
     def wodom_callback(self, data:LeftRightFloat32):
         # Implement lecture L07 P10
@@ -126,7 +136,12 @@ class Localisation:
         self.z_t = np.array([x, y, psi])
 
         # Update Kalman gain Kt
-        Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
+        if not self.vodom_failure:
+            # If the vision-based localisation is working
+            Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
+        else:
+            # If the vision-based localisation fails
+            Kt = np.zeros((3, 3))
 
         # Update the pose estimate
         self.phat_t_given_t = self.phat_t_given_t_1 + Kt @ (self.z_t - self.phat_t_given_t_1)
@@ -135,8 +150,15 @@ class Localisation:
         self.pose_cov_t_1_given_t_1 = self.pose_cov_t_given_t
         self.pose_cov_t_given_t = self.pose_cov_t_given_t_1 - Kt @ (self.pose_cov_t_given_t_1 + self.cv_cov_t) @ np.transpose(Kt)
 
+    def vfail_callback(self, data:Bool):
+        if data.data:
+            self.vodom_failure = True
+        else:
+            self.vodom_failure = False
+
     def timer_callback(self, event):
         # Publish the odom at a fixed rate
+        self.current_time = rospy.Time.now()
         self.publish_odom()
 
     def publish_odom(self):
@@ -151,6 +173,12 @@ class Localisation:
         y = self.phat_t_given_t[Y]
         psi = self.phat_t_given_t[PSI]
 
+        if self.verbosity == 1:
+            rospy.loginfo("-"*25 + "Localisation" + "-"*25 +
+                          f"\n vodom fails: {self.vodom_failure}" +
+                          f"\n x: {x:3.5f}, y: {y:3.5f}, psi: {psi/np.pi:3.5f}pi" + 
+                          f"\n pose covariance: \n{self.pose_cov_t_given_t}")
+
         # Set the position in the odometry message
         odom_msg.pose.pose.position = Point(x, y, 0)
         odom_quat = quaternion_from_euler(0, 0, psi)
@@ -162,7 +190,7 @@ class Localisation:
     @staticmethod
     def quat_to_euler(quat):
         if quat is not None:
-            euler = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+            euler = euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
             return euler[2]  # return the yaw, which is the orientation around z-axis
         else:
             return 0  # If intialised to None, return 0

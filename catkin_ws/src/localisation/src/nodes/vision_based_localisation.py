@@ -8,22 +8,30 @@ Subscribed topics:
     /asc/aruco_detections  [asclinic_pkg/FiducialMarkerArray]
 Published topics:
     vodom                  [nav_msgs/Odometry]
+    vodom_failure          [std_msgs/Bool]
 '''
 
+# Core imports
 import rospy
 import rospkg
-from asclinic_pkg.msg import FiducialMarkerArray, FiducialMarker
+
+# Messages imports
+from asclinic_pkg.msg import FiducialMarkerArray
 from nav_msgs.msg import Odometry
-import numpy as np
 from geometry_msgs.msg import Point, Quaternion
-from tf.transformations import quaternion_from_euler
+from std_msgs.msg import Bool
+
+# Algorithms imports
+import numpy as np
+from tf.transformations import quaternion_from_euler, euler_from_matrix
 import cv2
-import tf.transformations as tf_trans
+
+# Constants
 X = 1
 Y = 2
 Z = 3
 PSI = 4
-TIMED_OUT = 0.5
+TIMED_OUT = 0.3
 
 class VisionBasedLocalisation:
     def __init__(self):
@@ -51,6 +59,7 @@ class VisionBasedLocalisation:
 
         # Publisher
         self.vodom_pub = rospy.Publisher("vodom", Odometry, queue_size=10)
+        self.vodom_failure_pub = rospy.Publisher("vodom_failure", Bool, queue_size=10)
 
         # Initialise parameters and data
         self.x, self.y, self.psi = 0.0, 0.0, 0.0
@@ -72,10 +81,13 @@ class VisionBasedLocalisation:
             distance_vec = marker.tvec  # T
             rotation_vec = marker.rvec  # R
 
+            if id == 26 or id > 28:
+                continue
+
             # Transformations
             R, _ = cv2.Rodrigues(rotation_vec)
             T = np.array(distance_vec)
-            euler_angles = tf_trans.euler_from_matrix(R,'sxyz')
+            euler_angles = euler_from_matrix(R,'sxyz')
 
             # Update the pose info
             x, y, psi = self.get_position(T, id, euler_angles[1])
@@ -88,9 +100,11 @@ class VisionBasedLocalisation:
                             f"\n marker id: {id}" + 
                             f"\n x: {x:3.5f}, y: {y:3.5f}, psi: {psi/np.pi:3.5f}pi")
 
-        self.x = np.mean(x_list)
-        self.y = np.mean(y_list)
-        self.psi = np.mean(psi_list)
+        # If either is not empty
+        if x_list and y_list and psi_list:
+            self.x = np.mean(x_list)
+            self.y = np.mean(y_list)
+            self.psi = np.mean(psi_list)
 
         # Track the last updated time
         self.last_recv = rospy.Time.now()
@@ -122,6 +136,9 @@ class VisionBasedLocalisation:
         # Check if the last updated time is within timedout duration
         if self.current_time - self.last_recv > rospy.Duration(TIMED_OUT):
             rospy.logwarn("No marker detected!")
+            self.vodom_failure_pub.publish(True)
+        else:
+            self.vodom_failure_pub.publish(False)
 
     def publish_odom(self):
         # Create the odometry message

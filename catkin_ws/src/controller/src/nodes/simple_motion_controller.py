@@ -151,8 +151,10 @@ class SimpleMotionController:
             sign_alpha = 1 if alpha < 0 else -1
             omega = P_alpha * sign_alpha * (pi - abs(alpha)) + P_theta * etheta
         
-        v     = np.clip(v    , -0.3, 0.4)
-        omega = np.clip(omega, -0.7, 0.7)
+        # v     = np.clip(v    , -0.3, 0.4)
+        # omega = np.clip(omega, -0.7, 0.7)
+        v     = np.clip(v    , -0.1, 0.2)
+        omega = np.clip(omega, -0.2, 0.2)
         return v, omega, rho, alpha, beta, P_rho, P_alpha, P_theta
 
     ##############################################################################################################
@@ -253,11 +255,8 @@ class SimpleMotionController:
     @staticmethod
     def slice_evenly(original_list, number_of_elements):
         length = len(original_list)
-        print("length: ", length)
         step = length // number_of_elements
-        # sliced_list = 
         return original_list[0::step]
-        #  sliced_list[:number_of_elements]
 
     def data(self):
         with open(f'{self.save_path}pure_pursuit_controller_{self.formatted_time}.csv', 'w', newline='') as file:
