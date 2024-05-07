@@ -74,4 +74,13 @@
 		required        = "true">
 	</node>
 
+	<!-- Get the covariance data -->
+	<!-- <node 
+		pkg             = "controller"
+		type            = "get_wheel_cov.py"
+		name            = "get_wheel_cov"
+		output          = "screen"
+		required        = "true">
+	</node> -->
+
 </launch>

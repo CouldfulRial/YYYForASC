@@ -1,10 +1,10 @@
 <launch>
 
 	<!-- Motors -->
-	<include file="$(find controller)/launch/motors.launch" />
+	<include file    = "$(find controller)/launch/motors.launch" />
 
 	<!-- Localisation -->
-	<include file="$(find localisation)/launch/localisation.launch" />
+	<include file    = "$(find localisation)/launch/localisation.launch" />
 
 	<!-- Simple Motion Controller -->
 	<node 
@@ -12,7 +12,7 @@
 		type            = "simple_motion_controller.py"
 		name            = "simple_motion_controller"
 		output          = "screen"
-		required = "true">
+		required        = "true">
 
 		<param name     = "verbosity" value = "0" />
 		<param name     = "save_data" value = "0" />
@@ -20,12 +20,12 @@
 	</node>
 
 	<!-- Task Level Controller -->
-	<node 
+	<!-- <node 
 		pkg             = "navigation"
 		type            = "task_level_controller.py"
 		name            = "task_level_controller"
 		output          = "screen"
-		required = "true">
-	</node>
+		required        = "true">
+	</node> -->
 
 </launch>
