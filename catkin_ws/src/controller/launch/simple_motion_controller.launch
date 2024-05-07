@@ -14,8 +14,8 @@
 		output          = "screen"
 		required = "true">
 
-		<param name     = "verbosity" value = "1" />
-		<param name     = "save_data" value = "1" />
+		<param name     = "verbosity" value = "0" />
+		<param name     = "save_data" value = "0" />
 		<param name     = "simulate" value = "0" />
 	</node>
 

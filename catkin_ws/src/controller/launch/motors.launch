@@ -44,7 +44,7 @@
 	</group>
 
 	<!-- Motor Model -->
-	<node pkg           = "controller"
+	<node pkg        = "controller"
 		type            = "motor_model.py"
 		name            = "motor_model"
 		output          = "screen">
@@ -58,11 +58,11 @@
 		type            = "motor_controller.py"
 		name            = "motor_controller"
 		output          = "screen"
-		required = "true">
+		required        = "true">
 
-		<param name     = "verbosity" value = "1" />
-		<param name     = "save_data" value = "1" />
-		<param name     = "debug" value = "1" />
+		<param name     = "verbosity" value = "0" />
+		<param name     = "save_data" value = "0" />
+		<param name     = "debug" value = "0" />
 	</node>
 
 	<!-- Twist to Wheel Speeds -->
@@ -71,7 +71,7 @@
 		type            = "twist_to_wheel_speeds.py"
 		name            = "twist_to_wheel_speeds"
 		output          = "screen"
-		required = "true">
+		required        = "true">
 	</node>
 
 </launch>
