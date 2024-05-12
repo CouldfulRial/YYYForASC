@@ -50,13 +50,15 @@ class Localisation:
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
         self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)
-        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
+        # self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
         self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
 
         # Publisher
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=10)
 
         # Initialise parameters
+        self.Delta_s_t   = 0.0
+        self.Delta_psi_t = 0.0
         self.z_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t-1
         self.z_t = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t
         self.phat_t_given_t = np.array([0.0, 0.0, 0.0])  # pose estimate after fusion of odometry with CV update t
@@ -68,10 +70,10 @@ class Localisation:
         self.pose_cov_t_given_t_1 = np.zeros((3, 3))  # Covariance of the pose estimate at time t given t-1
         self.pose_cov_t_1_given_t_1 = np.zeros((3, 3))  # Covariance of the pose estimate at time t-1 given t-1
         # Update the following covariance matrix after measurements
-        self.cv_cov_t = np.eye(3)  # Covariance of the computer vision estimate at time t
+        self.cv_cov_t = np.eye(3) * 0.01  # Covariance of the computer vision estimate at time t
 
         # vodom failure flag
-        self.vodom_failure = False
+        self.vodom_failure = True
 
         # Timer: Calls the timer_callback function at frequency in Hz
         # The vodom will be published at 10Hz
@@ -82,21 +84,21 @@ class Localisation:
         # Implement lecture L07 P10
         # Extract the updated change in both wheels at t
         # Update the pose estimate at t given the previous vodom z_t-1
-        delta_theta_l = data.left  * TIME_STEP
-        delta_theta_r = data.right * TIME_STEP
+        delta_theta_l = data.left  #* TIME_STEP
+        delta_theta_r = data.right #* TIME_STEP
 
         # Map to Delta_s, Delta_psi
-        Delta_s_t   = WHEEL_RADIUS / 2          * (delta_theta_l + delta_theta_r)
-        Delta_psi_t = WHEEL_RADIUS / WHEEL_BASE * (delta_theta_r - delta_theta_l)
-        inside = self.z_t_1[PSI] + Delta_psi_t / 2
+        self.Delta_s_t   = WHEEL_RADIUS / 2          * (delta_theta_l + delta_theta_r)
+        self.Delta_psi_t = WHEEL_RADIUS / WHEEL_BASE * (delta_theta_r - delta_theta_l)
+        inside = self.z_t_1[PSI] + self.Delta_psi_t / 2
 
         # Update the predicted pose according to f_up
-        self.phat_t_given_t_1[X] = self.phat_t_1_given_t_1[X]   + Delta_s_t * np.cos(inside)
-        self.phat_t_given_t_1[Y] = self.phat_t_1_given_t_1[Y]   + Delta_s_t * np.sin(inside)
-        self.phat_t_given_t_1[PSI] = self.phat_t_1_given_t_1[PSI] + Delta_psi_t
+        self.phat_t_given_t_1[X]   = self.phat_t_1_given_t_1[X]   + self.Delta_s_t * np.cos(inside)
+        self.phat_t_given_t_1[Y]   = self.phat_t_1_given_t_1[Y]   + self.Delta_s_t * np.sin(inside)
+        self.phat_t_given_t_1[PSI] = self.phat_t_1_given_t_1[PSI] + self.Delta_psi_t
 
         # Update the predicted covariance
-        self.update_pose_cov(delta_theta_l, delta_theta_r, inside, Delta_s_t)
+        self.update_pose_cov(delta_theta_l, delta_theta_r, inside, self.Delta_s_t)
 
     def update_pose_cov(self, delta_theta_l, delta_theta_r, inside, Delta_s_t):
         # This function implements lecture L05 P17 and P33
@@ -123,7 +125,12 @@ class Localisation:
         ]
 
         # Update the pose covariance matrix (3x3)
-        self.pose_cov_t_given_t_1 = pose_jacobians @ self.pose_cov_t_1_given_t_1 @ np.transpose(pose_jacobians) + theta_jacobians @ theta_covariance @ np.transpose(theta_jacobians)
+        if not self.vodom_failure:
+            # If the vision-based localisation is working
+            self.pose_cov_t_given_t_1 = pose_jacobians @ self.pose_cov_t_1_given_t_1 @ np.transpose(pose_jacobians) + theta_jacobians @ theta_covariance @ np.transpose(theta_jacobians)
+        else:
+            # If the vision-based localisation fails, then we assume wodom is the only source of information
+            self.pose_cov_t_given_t_1 = np.zeros((3, 3))
 
     def vodom_callback(self, data:Odometry):
         # Based on the vision-based localisation
@@ -134,13 +141,15 @@ class Localisation:
 
         # Update the current pose z_t, and z_t-1
         self.z_t_1 = self.z_t
-        if not self.vodom_failure:
-            # If the vision-based localisation is working
-            self.z_t = np.array([x, y, psi])
-        else:
-            # If the vision-based localisation fails, use the last update from wodom only
-            self.z_t = self.phat_t_given_t_1
+        self.z_t = np.array([x, y, psi])
 
+    def vfail_callback(self, data:Bool):
+        if data.data:
+            self.vodom_failure = True
+        else:
+            self.vodom_failure = False
+
+    def timer_callback(self, event):
         # Update Kalman gain Kt
         Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
 
@@ -152,13 +161,6 @@ class Localisation:
         self.pose_cov_t_1_given_t_1 = self.pose_cov_t_given_t
         self.pose_cov_t_given_t = self.pose_cov_t_given_t_1 - Kt @ (self.pose_cov_t_given_t_1 + self.cv_cov_t) @ np.transpose(Kt)
 
-    def vfail_callback(self, data:Bool):
-        if data.data:
-            self.vodom_failure = True
-        else:
-            self.vodom_failure = False
-
-    def timer_callback(self, event):
         # Publish the odom at a fixed rate
         self.current_time = rospy.Time.now()
         self.publish_odom()
@@ -185,6 +187,10 @@ class Localisation:
         odom_msg.pose.pose.position = Point(x, y, 0)
         odom_quat = quaternion_from_euler(0, 0, psi)
         odom_msg.pose.pose.orientation = Quaternion(*odom_quat)  # * is used to unpack the tuple
+
+        # Set the velocity in the odometry message
+        odom_msg.twist.twist.linear.x = self.Delta_s_t / TIME_STEP
+        odom_msg.twist.twist.angular.z = self.Delta_psi_t / TIME_STEP
         
         # Publish the odometry message
         self.odom_pub.publish(odom_msg)
