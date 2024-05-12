@@ -20,39 +20,94 @@ import numpy as np
 
 # Parmeters
 TIME_STEP = 0.1  # s
+SPEED = 1.0  # m/s
+# PATH = [
+#     np.array([0.0000, 0.0000]),
+#     np.array([0.0591, 0.0807]),
+#     np.array([0.1256, 0.1553]),
+#     np.array([0.2088, 0.2109]),
+#     np.array([0.2914, 0.2672]),
+#     np.array([0.3318, 0.3587]),
+#     np.array([0.4201, 0.4057]),
+#     np.array([0.5021, 0.4628]),
+#     np.array([0.5655, 0.5402]),
+#     np.array([0.6557, 0.5834]),
+#     np.array([0.7238, 0.6566]),
+#     np.array([0.8079, 0.7107]),
+#     np.array([0.8882, 0.7702]),
+#     np.array([0.9627, 0.8369]),
+#     np.array([1.0029, 0.9285]),
+#     np.array([1.0641, 1.0076]),
+#     np.array([1.1051, 1.0988]),
+#     np.array([1.1850, 1.1588]),
+#     np.array([1.2472, 1.2372]),
+#     np.array([1.2893, 1.3279]),
+#     np.array([1.3540, 1.4041]),
+#     np.array([1.4111, 1.4862]),
+#     np.array([1.4886, 1.5495]),
+#     np.array([1.5356, 1.6377]),
+#     np.array([1.6057, 1.7091]),
+#     np.array([1.6823, 1.7733]),
+#     np.array([1.7764, 1.8073]),
+#     np.array([1.8589, 1.8639]),
+#     np.array([1.9433, 1.9175]),
+#     np.array([2.0141, 1.9880]),
+#     np.array([2.0000, 2.0000])
+# ]
+
 PATH = [
     np.array([0.0000, 0.0000]),
-    np.array([0.0591, 0.0807]),
-    np.array([0.1256, 0.1553]),
-    np.array([0.2088, 0.2109]),
-    np.array([0.2914, 0.2672]),
-    np.array([0.3318, 0.3587]),
-    np.array([0.4201, 0.4057]),
-    np.array([0.5021, 0.4628]),
-    np.array([0.5655, 0.5402]),
-    np.array([0.6557, 0.5834]),
-    np.array([0.7238, 0.6566]),
-    np.array([0.8079, 0.7107]),
-    np.array([0.8882, 0.7702]),
-    np.array([0.9627, 0.8369]),
-    np.array([1.0029, 0.9285]),
-    np.array([1.0641, 1.0076]),
-    np.array([1.1051, 1.0988]),
-    np.array([1.1850, 1.1588]),
-    np.array([1.2472, 1.2372]),
-    np.array([1.2893, 1.3279]),
-    np.array([1.3540, 1.4041]),
-    np.array([1.4111, 1.4862]),
-    np.array([1.4886, 1.5495]),
-    np.array([1.5356, 1.6377]),
-    np.array([1.6057, 1.7091]),
-    np.array([1.6823, 1.7733]),
-    np.array([1.7764, 1.8073]),
-    np.array([1.8589, 1.8639]),
-    np.array([1.9433, 1.9175]),
-    np.array([2.0141, 1.9880]),
-    np.array([2.0000, 2.0000])
+    np.array([0.2648, -0.0529]),
+    np.array([0.5263, -0.1045]),
+    np.array([0.7815, -0.1538]),
+    np.array([1.0270, -0.1995]),
+    np.array([1.2596, -0.2404]),
+    np.array([1.4762, -0.2754]),
+    np.array([1.6735, -0.3032]),
+    np.array([1.8483, -0.3227]),
+    np.array([1.9974, -0.3326]),
+    np.array([2.1176, -0.3317]),
+    np.array([2.2056, -0.3189]),
+    np.array([2.2583, -0.2930]),
+    np.array([2.2725, -0.2528]),
+    np.array([2.2449, -0.1971]),
+    np.array([2.1723, -0.1246]),
+    np.array([2.0515, -0.0343]),
+    np.array([1.8799, 0.0750]),
+    np.array([1.6610, 0.2025]),
+    np.array([1.4027, 0.3465]),
+    np.array([1.1127, 0.5051]),
+    np.array([0.7988, 0.6764]),
+    np.array([0.4689, 0.8586]),
+    np.array([0.1307, 1.0500]),
+    np.array([-0.2079, 1.2486]),
+    np.array([-0.5392, 1.4526]),
+    np.array([-0.8554, 1.6602]),
+    np.array([-1.1486, 1.8695]),
+    np.array([-1.4111, 2.0787]),
+    np.array([-1.6350, 2.2860]),
+    np.array([-1.8125, 2.4896]),
+    np.array([-1.9359, 2.6875]),
+    np.array([-1.9973, 2.8780]),
+    np.array([-1.9891, 3.0593]),
+    np.array([-1.9080, 3.2304]),
+    np.array([-1.7580, 3.3918]),
+    np.array([-1.5438, 3.5443]),
+    np.array([-1.2699, 3.6884]),
+    np.array([-0.9410, 3.8248]),
+    np.array([-0.5615, 3.9541]),
+    np.array([-0.1362, 4.0770]),
+    np.array([0.3304, 4.1941]),
+    np.array([0.8338, 4.3061]),
+    np.array([1.3693, 4.4136]),
+    np.array([1.9324, 4.5172]),
+    np.array([2.5183, 4.6176]),
+    np.array([3.1227, 4.7155]),
+    np.array([3.7408, 4.8114]),
+    np.array([4.3681, 4.9060]),
+    np.array([5.0000, 5.0000])
 ]
+
 
 class TrajectoryTracker:
     def __init__(self):
@@ -114,20 +169,23 @@ class TrajectoryTracker:
         pass
 
     def odom_callback(self, data:Odometry):
-        # Get the current position
-        self.position = np.array([[data.pose.pose.position.x], [data.pose.pose.position.y]])
+        # Get the current position 2x1
+        self.position = np.array([[data.pose.pose.position.x],
+                                  [data.pose.pose.position.y]])
         self.yaw = self.quat_to_euler(data.pose.pose.orientation)
 
-        # Get the current twist
-        self.twist = np.array([[data.twist.twist.linear.x], [data.twist.twist.angular.z]])
+        # Get the current twist 2x1
+        self.twist = np.array([[data.twist.twist.linear.x],
+                               [data.twist.twist.angular.z]])
 
-        # Map to the inertial velocity
-        self.velocity = np.array([[self.twist[0] * np.cos(self.yaw)], [self.twist[0] * np.sin(self.yaw)]])
+        # Map to the inertial velocity 2x1
+        self.velocity = np.array([[data.twist.twist.linear.x * np.cos(self.yaw)], 
+                                  [data.twist.twist.linear.x * np.sin(self.yaw)]])
 
     def timer_callback(self, event):
         # Execute the control loop
         v, omega = self.simple_PD_controller()
-        # v = np.clip(v, -0.3, 0.4)
+        # v = np.clip(v, -1, 1)
         # omega = np.clip(omega, -0.4, 0.4)
 
         # Logging
@@ -179,18 +237,21 @@ class TrajectoryTracker:
             rospy.signal_shutdown("End of Path")
             return 0.0, 0.0
         else:
+            # 2x1
             self.target_position = PATH[idx].reshape(-1, 1)  # Use reshape instead of T because it is a 1D array
             self.old_target_pos = PATH[idx - 1].reshape(-1, 1)
 
-        # Keep track of target position and velocity
-        self.target_velocity = (self.target_position - self.old_target_pos)
+        # Keep track of target position and velocity 2x1
+        displacement = self.target_position - self.old_target_pos
+        target_time = np.linalg.norm(displacement) / SPEED
+        self.target_velocity = displacement / target_time
 
         # A PD controller to get desired velocity
-        Kp = 0.5
-        Kd = 0.5
-        position_error = self.target_position - self.position
-        velocity_error = self.target_velocity - self.velocity
-        self.acceleration = Kp * position_error + Kd * velocity_error;  # a_x; a_y
+        Kp = 2
+        Kd = 2
+        position_error = self.target_position - self.position  # 2x1
+        velocity_error = self.target_velocity - self.velocity  # 2x1
+        self.acceleration = Kp * position_error + Kd * velocity_error;  # 2x1: a_x; a_y
 
         # Map the desired acceleration to the velocity and steering
         v_unit_vec = np.array([np.cos(self.yaw), np.sin(self.yaw)])  # 1x2
