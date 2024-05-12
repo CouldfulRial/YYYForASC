@@ -4,7 +4,7 @@
 This node implements the pure pursuit controller
 Subscribed topics:
     path    [nav_msgs/Path]
-    odom   [nav_msgs/Odometry]
+    odom    [nav_msgs/Odometry]
 Published topics:
     cmd_vel [geometry_msgs/Twist]
 '''
@@ -15,37 +15,76 @@ import csv
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import Twist, Vector3, Pose2D
 import tf
-import math
-from math import pi
 import matplotlib.pyplot as plt
 import numpy as np
 
 # Parmeters
 TIME_STEP = 0.1  # s
+PATH = [
+    np.array([0.0000, 0.0000]),
+    np.array([0.0591, 0.0807]),
+    np.array([0.1256, 0.1553]),
+    np.array([0.2088, 0.2109]),
+    np.array([0.2914, 0.2672]),
+    np.array([0.3318, 0.3587]),
+    np.array([0.4201, 0.4057]),
+    np.array([0.5021, 0.4628]),
+    np.array([0.5655, 0.5402]),
+    np.array([0.6557, 0.5834]),
+    np.array([0.7238, 0.6566]),
+    np.array([0.8079, 0.7107]),
+    np.array([0.8882, 0.7702]),
+    np.array([0.9627, 0.8369]),
+    np.array([1.0029, 0.9285]),
+    np.array([1.0641, 1.0076]),
+    np.array([1.1051, 1.0988]),
+    np.array([1.1850, 1.1588]),
+    np.array([1.2472, 1.2372]),
+    np.array([1.2893, 1.3279]),
+    np.array([1.3540, 1.4041]),
+    np.array([1.4111, 1.4862]),
+    np.array([1.4886, 1.5495]),
+    np.array([1.5356, 1.6377]),
+    np.array([1.6057, 1.7091]),
+    np.array([1.6823, 1.7733]),
+    np.array([1.7764, 1.8073]),
+    np.array([1.8589, 1.8639]),
+    np.array([1.9433, 1.9175]),
+    np.array([2.0141, 1.9880]),
+    np.array([2.0000, 2.0000])
+]
 
-class SimpleMotionController:
+class TrajectoryTracker:
     def __init__(self):
         # Initialise node
         self.node_name = 'trajectory_tracker'
         rospy.init_node(self.node_name, anonymous=True)
 
         # Get user parameter
-        self.parm  = rospy.get_param(self.node_name)
-        self.verbosity = self.parm["verbosity"]
-        self.save_data = self.parm["save_data"]
-        self.simulate = self.parm["simulate"]
+        try:
+            self.parm  = rospy.get_param(self.node_name)
+            self.verbosity = self.parm["verbosity"]
+            self.save_data = self.parm["save_data"]
+            self.simulate = self.parm["simulate"]
+        except KeyError:
+            self.verbosity = 1
+            self.save_data = 1
+            self.simulate = 0
 
         # Initialise the variables
-        self.current_path = None
-        self.current_x = 0
-        self.current_y = 0
-        self.current_yaw = 0
-        self.target_x = 0.0
-        self.target_y = 0.0
-        self.target_yaw = 0.0
+        self.acceleration, self.omega = 0.0, 0.0  # The command input to the robot
+        self.target_position = np.zeros((2, 1))  # The current position to track
+        self.old_target_pos = np.zeros((2, 1))  # The previous position to track
+        self.target_velocity = np.zeros((2, 1))  # The current velocity to track
+        self.position = np.zeros((2, 1))  # The current position of the robot
+        self.yaw = 0.0  # The current orientation of the robot
+        self.twist = np.zeros((2, 1))  # The current twist of the robot
+        self.velocity = np.zeros((2, 1))  # The current inertial velocity of the robot
+        self.initial_time = rospy.Time.now().to_sec()  # The initial time
+        self.current_time = 0.0  # The current time
 
         # Subscribers
-        self.path_subscriber = rospy.Subscriber('ref_pose', Pose2D, self.path_callback)
+        self.path_subscriber = rospy.Subscriber('path', Path, self.path_callback)
         self.odom_subscriber = rospy.Subscriber('odom', Odometry, self.odom_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
@@ -72,39 +111,52 @@ class SimpleMotionController:
             self.formatted_time = intial_time.strftime('%y%m%d_%H_%M_%S')
 
     def path_callback(self, data):
-        self.target_x = data.x
-        self.target_y = data.y
-        self.target_yaw = data.theta
+        pass
 
     def odom_callback(self, data:Odometry):
-        self.current_x = data.pose.pose.position.x
-        self.current_y = data.pose.pose.position.y
-        self.current_yaw = self.quat_to_euler(data.pose.pose.orientation)
+        # Get the current position
+        self.position = np.array([[data.pose.pose.position.x], [data.pose.pose.position.y]])
+        self.yaw = self.quat_to_euler(data.pose.pose.orientation)
+
+        # Get the current twist
+        self.twist = np.array([[data.twist.twist.linear.x], [data.twist.twist.angular.z]])
+
+        # Map to the inertial velocity
+        self.velocity = np.array([[self.twist[0] * np.cos(self.yaw)], [self.twist[0] * np.sin(self.yaw)]])
 
     def timer_callback(self, event):
         # Execute the control loop
-        v, omega, rho, alpha, beta, self.P_rho, self.P_alpha, self.P_theta = self.simple_controller(
-            self.current_x, self.current_y, self.current_yaw,
-            self.target_x,  self.target_y,  self.target_yaw)
+        v, omega = self.simple_PD_controller()
+        # v = np.clip(v, -0.3, 0.4)
+        # omega = np.clip(omega, -0.4, 0.4)
 
         # Logging
         if self.verbosity == 1:
-            rospy.loginfo("-"*25 + "Simple Motion Controller" + "-"*25 +
-                        f"\nx: {self.current_x:3.5f}, y: {self.current_y:3.5f}, yaw: {self.current_yaw/pi:3.5f}pi" +
-                        f"\nalpha: {alpha/pi:3.5f}pi, beta: {beta/pi:3.5f}pi, rho: {rho:3.5f}" +
-                        f"\nv: {v:3.5f}, omega: {omega:3.5f}"
-                        f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.target_yaw/pi:3.5f}pi)" + 
+            x = self.position[0, 0]
+            y = self.position[1, 0]
+            tx = self.target_position[0, 0]
+            ty = self.target_position[1, 0]
+            cv = self.twist[0, 0]
+            comega = self.twist[1, 0]
+            print("target velocity: \n", self.target_velocity)
+            print("acceleration: \n", self.acceleration)
+            print("velocity: \n", self.velocity)
+            rospy.loginfo("-"*25 + self.node_name + "-"*25 +
+                        f"\nx: {x:3.5f}, y: {y:3.5f}, yaw: {self.yaw/np.pi:3.5f}pi" +
+                        f"\ntarget: ({tx:3.5f}, {ty:3.5f})" + 
+                        f"\nv: {cv:3.5f}, omega: {comega:3.5f}" +
+                        f"\ncmd_v: {v:3.5f}, cmd_omega: {omega:3.5f}" + 
                         "\n")
 
         # Data saving
         if self.save_data == 1:
-            self.time_list.append(self.time_list[-1] + TIME_STEP)
-            self.x_list.append(self.current_x)
-            self.y_list.append(self.current_y)
-            self.yaw_list.append(self.current_yaw)
-            self.target_x_list.append(self.target_x)
-            self.target_y_list.append(self.target_y)
-            self.target_yaw_list.append(self.target_yaw)
+            self.time_list.append(self.current_time)
+            self.x_list.append(self.position[0, 0])
+            self.y_list.append(self.position[1, 0])
+            self.yaw_list.append(self.yaw)
+            self.target_x_list.append(self.target_position[0, 0])
+            self.target_y_list.append(self.target_position[1, 0])
+            # self.target_yaw_list.append(self.target_yaw)
         
         # Publish the velocity command
         self.cmd_vel_publisher.publish(
@@ -114,46 +166,42 @@ class SimpleMotionController:
             )
         )
 
-    @staticmethod
-    def simple_controller(x, y, yaw, tx, ty, tyaw):
-        # https://www.bilibili.com/video/BV19C4y1U7TE/?share_source=copy_web&vd_source=53bbd60e60dc232b7e76c75b2d1024c5
-        # Compute pose error
-        ex     = tx - x
-        ey     = ty - y
-        etheta = SimpleMotionController.wrap_angle(tyaw - yaw)
+    def simple_PD_controller(self):
+        # https://www.youtube.com/watch?v=OcsD-1wINK0&t=313s
+        # A simple PD controller for trajectory tracking
 
-        # Map from global to robot frame in polar coordinates
-        # The linear distance to the goal
-        rho = math.sqrt(ex**2 + ey**2)  
-        # The angle between the goal theta and the current position of the robot
-        beta = math.atan2(ey, ex)
-        # Intended angle between the robot and the direction of rho
-        alpha = SimpleMotionController.wrap_angle(beta - yaw)
-
-        # Controller parameters
-        # Gains
-        P_rho   = 0.5 if rho > 0.1 else 0.01
-        P_theta  = 1 if rho < 0.1 else 0
-        # adjusting alpha is useless if too close to the goal
-        P_alpha = 2 if rho > 0.1 else 0
-
-        # Orientation considerations
-        # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
-        # v = P_rho * rho
-        # omega = P_alpha * alpha + P_theta * etheta
-        if alpha > -pi / 2 and alpha < pi / 2:
-            # We define that the robot is facing the goal
-            v = P_rho * rho
-            omega = P_alpha * alpha + P_theta * etheta
+        # Get the current tracking position, increment by second
+        self.current_time = rospy.Time.now().to_sec() - self.initial_time
+        idx = np.floor(self.current_time) + 1
+        idx = int(idx)
+        if idx > (len(PATH) - 1):
+            # No more point to track
+            rospy.signal_shutdown("End of Path")
+            return 0.0, 0.0
         else:
-            # The robot is facing the opposite direction
-            v = -P_rho * rho
-            sign_alpha = 1 if alpha < 0 else -1
-            omega = P_alpha * sign_alpha * (pi - abs(alpha)) + P_theta * etheta
-        
-        v     = np.clip(v    , -0.3, 0.4)
-        omega = np.clip(omega, -0.7, 0.7)
-        return v, omega, rho, alpha, beta, P_rho, P_alpha, P_theta
+            self.target_position = PATH[idx].reshape(-1, 1)  # Use reshape instead of T because it is a 1D array
+            self.old_target_pos = PATH[idx - 1].reshape(-1, 1)
+
+        # Keep track of target position and velocity
+        self.target_velocity = (self.target_position - self.old_target_pos)
+
+        # A PD controller to get desired velocity
+        Kp = 0.5
+        Kd = 0.5
+        position_error = self.target_position - self.position
+        velocity_error = self.target_velocity - self.velocity
+        self.acceleration = Kp * position_error + Kd * velocity_error;  # a_x; a_y
+
+        # Map the desired acceleration to the velocity and steering
+        v_unit_vec = np.array([np.cos(self.yaw), np.sin(self.yaw)])  # 1x2
+        acceleration = v_unit_vec @ self.acceleration
+        v = self.velocity[0] + acceleration
+
+        omega_unit_vec = np.array([np.cos(self.yaw + np.pi/2), np.sin(self.yaw + np.pi/2)])  # 1x2
+        omega = omega_unit_vec @ self.acceleration
+
+        return float(v[0]), float(omega[0])
+
 
     ##############################################################################################################
     ############################## Untilities ####################################################################
@@ -162,7 +210,7 @@ class SimpleMotionController:
     @staticmethod
     def wrap_angle(angle):
         # Angle wrapping
-        return (angle + pi) % (2 * pi) - pi
+        return (angle + np.pi) % (2 * np.pi) - np.pi
 
     @staticmethod
     def quat_to_euler(quat):
@@ -176,6 +224,12 @@ class SimpleMotionController:
     ############################## The following codes are not relevant to algorithm ##############################
     ##############################################################################################################
     def shutdown_callback(self):
+        self.cmd_vel_publisher.publish(
+            Twist(
+                Vector3(0.0, 0, 0),
+                Vector3(0, 0, 0.0)
+            )
+        )
         rospy.loginfo(f"Shutting down node {self.node_name}....")
         if self.save_data == 1:
             rospy.loginfo(f"Saving Data To {self.save_path}....")
@@ -192,13 +246,13 @@ class SimpleMotionController:
         plt.plot(self.x_list, self.y_list, label='Robot Path')
         plt.plot(self.target_x_list, self.target_y_list, label='Planned Path')
         # Plot the directions
-        SimpleMotionController.plot_vectors(self.x_list, self.y_list, self.yaw_list)
+        TrajectoryTracker.plot_vectors(self.x_list, self.y_list, self.yaw_list)
 
         # Format the plot
         plt.xlabel('X Position (m)')
         plt.ylabel('Y Position (m)')
         plt.legend()
-        plt.title(f"Position Plot\n P_rho={self.P_rho}, P_alpha={self.P_alpha}, P_theta={self.P_theta}")
+        plt.title(f"Position Plot")
         plt.grid(True)
         plt.axis('equal')
 
@@ -214,7 +268,7 @@ class SimpleMotionController:
         plt.plot(self.time_list, self.x_list, label='X Position')
         plt.plot(self.time_list, self.target_x_list, label='X Target')
         plt.ylabel('X Position (m)')
-        plt.title(f"Trakcing Plot\n P_rho={self.P_rho}, P_alpha={self.P_alpha}, P_theta={self.P_theta}")
+        plt.title(f"Trakcing Plot")
         plt.legend()
         ax1.grid(True)
 
@@ -227,7 +281,7 @@ class SimpleMotionController:
 
         ax3 = plt.subplot(3, 1, 3)
         plt.plot(self.time_list, self.yaw_list, label='Yaw Position')
-        plt.plot(self.time_list, self.target_yaw_list, label='Yaw Target')
+        # plt.plot(self.time_list, self.target_yaw_list, label='Yaw Target')
         plt.xlabel('Time (s)')
         plt.ylabel('Yaw (rad)')
         plt.legend()
@@ -239,9 +293,9 @@ class SimpleMotionController:
     @staticmethod
     def plot_vectors(x_list, y_list, theta_radians, length=0.1, num=10):
         # Truncate
-        x_list = SimpleMotionController.slice_evenly(x_list, num)
-        y_list = SimpleMotionController.slice_evenly(y_list, num)
-        theta_radians = SimpleMotionController.slice_evenly(theta_radians, num)
+        x_list = TrajectoryTracker.slice_evenly(x_list, num)
+        y_list = TrajectoryTracker.slice_evenly(y_list, num)
+        theta_radians = TrajectoryTracker.slice_evenly(theta_radians, num)
         
         # Calculate the components of the vectors
         dx = length * np.cos(theta_radians)
@@ -272,5 +326,5 @@ class SimpleMotionController:
         return rospack.get_path("controller") + '/src/data/'
 
 if __name__ == '__main__':
-    controller = SimpleMotionController()
+    controller = TrajectoryTracker()
     rospy.spin()

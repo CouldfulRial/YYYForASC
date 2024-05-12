@@ -1,0 +1,22 @@
+<launch>
+
+	<!-- Motors -->
+	<include file    = "$(find controller)/launch/motors.launch" />
+
+	<!-- Localisation -->
+	<include file    = "$(find localisation)/launch/localisation.launch" />
+
+	<!-- Trajectory Tracker -->
+	<node 
+		pkg             = "controller"
+		type            = "trajectory_tracker.py"
+		name            = "trajectory_tracker"
+		output          = "screen"
+		required        = "true">
+
+		<param name     = "verbosity" value = "1" />
+		<param name     = "save_data" value = "1" />
+		<param name     = "simulate" value = "0" />
+	</node>
+
+</launch>
