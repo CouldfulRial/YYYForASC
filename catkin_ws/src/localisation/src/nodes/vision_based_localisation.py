@@ -127,32 +127,38 @@ class VisionBasedLocalisation:
         # Decide x, y based on orientation
         # Mapping Camera measure to world frame
         if psi >= -np.pi/2 and psi <= np.pi/2: 
-           #marker_x_wrt_c = T[2]*np.cos(psi)
-           #marker_y_wrt_c = T[2]*np.sin(psi)
-           total_dis = math.sqrt(T[0]*T[0]+T[2]*T[2])
-           theta = math.acos(T[0]/total_dis)
-           marker_x_wrt_c = total_dis*np.cos((np.pi/2)-psi-theta)
-           marker_y_wrt_c = total_dis*np.sin((np.pi/2)-psi-theta)
-           #print('y direction', T[0])
-           print('test1',marker_y_wrt_c)
+            #marker_x_wrt_c = T[2]*np.cos(psi)
+            #marker_y_wrt_c = T[2]*np.sin(psi)
+            total_dis = math.sqrt(T[0]*T[0]+T[2]*T[2])
+            theta = math.acos(T[0]/total_dis)
+            marker_x_wrt_c = total_dis*np.cos((np.pi/2)-psi-theta)
+            marker_y_wrt_c = total_dis*np.sin((np.pi/2)-psi-theta)
+            if self.verbosity == 1:
+                #print('y direction', T[0])
+                print('test1',marker_y_wrt_c)
         if psi <= -np.pi/2 or psi >= np.pi/2:
-           total_dis = math.sqrt(T[0]*T[0]+T[2]*T[2])
-           theta = math.acos(T[0]/total_dis)
-           marker_x_wrt_c = total_dis*np.cos((np.pi/2)-psi-theta)
-           marker_y_wrt_c = total_dis*np.sin((np.pi/2)-psi-theta)
+            total_dis = math.sqrt(T[0]*T[0]+T[2]*T[2])
+            theta = math.acos(T[0]/total_dis)
+            marker_x_wrt_c = total_dis*np.cos((np.pi/2)-psi-theta)
+            marker_y_wrt_c = total_dis*np.sin((np.pi/2)-psi-theta)
 
-           print('test',marker_y_wrt_c)
-        # Decide world frame distance
+            if self.verbosity == 1:
+                print('test',marker_y_wrt_c)
+        # Decide world frame distance   
         if marker_Psi >= np.pi/2:
-           print(marker_Psi)
-           x = marker_x - marker_x_wrt_c
-           y = marker_y + marker_y_wrt_c
-           print('/n for y direction', y)
+            if self.verbosity == 1:
+                print(marker_Psi)
+            x = marker_x - marker_x_wrt_c
+            y = marker_y + marker_y_wrt_c
+            if self.verbosity == 1:
+                print('/n for y direction', y)
         if marker_Psi < np.pi/2:
-           print('right')
-           x = marker_x + marker_x_wrt_c
-           y = marker_y - marker_y_wrt_c
-        print(self)
+            if self.verbosity == 1:
+                print('right')
+            x = marker_x + marker_x_wrt_c
+            y = marker_y - marker_y_wrt_c
+        if self.verbosity == 1:
+            print(self)
         return x, y, psi
 
     def timer_callback(self, event):
