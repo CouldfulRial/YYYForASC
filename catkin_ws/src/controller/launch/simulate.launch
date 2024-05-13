@@ -1,25 +1,28 @@
 <launch>
 
-	<!-- Pure Pursuit Controller -->
+	<!-- pure_pursuit_tracker -->
 	<node 
 		pkg             = "controller"
-		type            = "simple_motion_controller.py"
-		name            = "simple_motion_controller"
+		type            = "pure_pursuit_tracker.py"
+		name            = "pure_pursuit_tracker"
 		output          = "screen"
-		required = "true">
+		required        = "true">
 
 		<param name     = "verbosity" value = "1" />
 		<param name     = "save_data" value = "1" />
 		<param name     = "simulate" value = "0" />
 	</node>
 
-	<!-- Task Level Controller -->
-	<node 
-		pkg             = "navigation"
-		type            = "task_level_controller.py"
-		name            = "task_level_controller"
+	<!-- <node 
+		pkg             = "controller"
+		type            = "simple_motion_controller.py"
+		name            = "simple_motion_controller"
 		output          = "screen"
-		required = "true">
-	</node>
+		required        = "true">
+
+		<param name     = "verbosity" value = "1" />
+		<param name     = "save_data" value = "1" />
+		<param name     = "simulate" value = "0" />
+	</node> -->
 
 </launch>
