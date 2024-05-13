@@ -20,9 +20,9 @@ import numpy as np
 
 # Parmeters
 TIME_STEP = 0.1  # s
-SPEED = 1.0  # m/s
+SPEED = 0.3  # m/s
 k = 0.1  # look forward gain
-Lfc = 1  # [m] look-ahead distance
+Lfc = 0.8  # [m] look-ahead distance
 Kp = 1.0  # speed proportional gain
 dt = 0.1  # [s] time tick
 WB = 0.218  # [m] wheel base of vehicle
@@ -136,11 +136,13 @@ class TrajectoryTracker:
         self.target_x, self.target_y = 0.0, 0.0
         # self.cx = np.array([point[0] for point in PATH])
         # self.cy = np.array([point[1] for point in PATH])
-        self.cx = np.arange(0, 50, 0.1)
-        self.cy = np.array([np.sin(ix) * 2 for ix in self.cx])
+        self.cx = np.arange(0, 2.5, 0.1)
+        self.cy = np.array([np.sin(ix*3) * 1 for ix in self.cx])
         # self.cx = np.arange(0, 50, 0.1)
         # self.cy = np.zeros_like(self.cx)
+        self.target_course = TargetCourse(self.cx, self.cy)
         self.target_ind = 0
+        self.v, self.omega = 0.0, 0.0
         self.current_time = rospy.Time.now().to_sec()
 
         # Subscribers
@@ -183,7 +185,7 @@ class TrajectoryTracker:
 
     def timer_callback(self, event):
         # Execute the control loop
-        self.pure_pursuit_controller()
+        self.v, self.omega = self.pure_pursuit_controller()
         # v = np.clip(v, -1, 1)
         # omega = np.clip(omega, -0.4, 0.4)
 
@@ -197,8 +199,16 @@ class TrajectoryTracker:
             rospy.loginfo("-"*25 + self.node_name + "-"*25 +
                         f"\nx: {x:3.5f}, y: {y:3.5f}, yaw: {yaw/np.pi:3.5f}pi" +
                         f"\ntarget: ({tx:3.5f}, {ty:3.5f})" + 
-                        # f"\ncmd_v: {v:3.5f}, cmd_omega: {omega:3.5f}" + 
+                        f"\ncmd_v: {self.v:3.5f}, cmd_omega: {self.omega:3.5f}" + 
                         "\n")
+
+        # Publish
+        self.cmd_vel_publisher.publish(
+            Twist(
+                Vector3(self.v, 0, 0),
+                Vector3(0, 0, self.omega)
+            )
+        )
 
         # Data saving
         if self.save_data == 1:
@@ -212,24 +222,20 @@ class TrajectoryTracker:
             # self.target_yaw_list.append(self.target_yaw)
 
     def pure_pursuit_controller(self):
-        target_speed = 1 # [m/s]
+        if self.target_ind >= len(self.cx)-1:
+            return 0.0, 0.0
 
-        target_course = TargetCourse(self.cx, self.cy)
-        self.target_ind, _ = target_course.search_target_index(self.state)
+        self.target_ind, _ = self.target_course.search_target_index(self.state)
 
         # Update data saving
         self.target_x, self.target_y = self.cx[self.target_ind], self.cy[self.target_ind]
 
         # Calc control input
-        ai = proportional_control(target_speed, self.state.v)
-        delta, self.target_ind = pure_pursuit_steer_control(self.state, target_course, self.target_ind)
+        ai = proportional_control(SPEED, self.state.v)
+        delta, self.target_ind = pure_pursuit_steer_control(self.state, self.target_course, self.target_ind)
 
-        self.state.input(ai, delta, self.cmd_vel_publisher)  # Control vehicle
-        if len(self.cx) - 1 > self.target_ind:
-            print("Yes!!!!")
-            self.state.input(ai, delta, self.cmd_vel_publisher, stop=True)
-
-        assert len(self.cx) - 1 >= self.target_ind, "Cannot goal"
+        v, omega = self.state.input(ai, delta, self.cmd_vel_publisher)  # Control vehicle
+        return v, omega
 
     ##############################################################################################################
     ############################## Untilities ####################################################################
@@ -376,13 +382,16 @@ class State:
 
     def input(self, a, delta, publisher:rospy.Publisher, stop=False):
         # Publish the new command v and omega
-        cmd_omega = self.v / WB * np.tan(delta) * 2
+        cmd_omega = self.v / WB * np.tan(delta) * 2.5
         cmd_v = self.v + a * dt
-        print(f"cmd_v: {cmd_v}, cmd_omega: {cmd_omega}")
-        if publisher is not None:
-            if stop:
-                publisher.publish(Twist(Vector3(0, 0, 0), Vector3(0, 0, 0)))
-            publisher.publish(Twist(Vector3(cmd_v, 0, 0), Vector3(0, 0, cmd_omega)))
+
+        return cmd_v, cmd_omega
+        
+        # print(f"cmd_v: {cmd_v}, cmd_omega: {cmd_omega}")
+        # if publisher is not None:
+        #     if stop:
+        #         publisher.publish(Twist(Vector3(0, 0, 0), Vector3(0, 0, 0)))
+        #     publisher.publish(Twist(Vector3(cmd_v, 0, 0), Vector3(0, 0, cmd_omega)))
 
     def update(self, x, y, yaw, v, omega):
         # Update the current x, y, psi, v and omega
@@ -401,49 +410,6 @@ def proportional_control(target, current):
     a = Kp * (target - current)
 
     return a
-
-def simple_controller(x, y, tx, ty, yaw=0.0, tyaw=0.0):
-    # https://www.bilibili.com/video/BV19C4y1U7TE/?share_source=copy_web&vd_source=53bbd60e60dc232b7e76c75b2d1024c5
-    # Compute pose error
-    ex     = tx - x
-    ey     = ty - y
-    etheta = TrajectoryTracker.wrap_angle(tyaw - yaw)
-
-    # Map from global to robot frame in polar coordinates
-    # The linear distance to the goal
-    rho = np.sqrt(ex**2 + ey**2)  
-    # The angle between the goal theta and the current position of the robot
-    beta = np.arctan2(ey, ex)
-    # Intended angle between the robot and the direction of rho
-    alpha = TrajectoryTracker.wrap_angle(beta - yaw)
-
-    # Controller parameters
-    # Gains
-    P_rho   = 0.5# if rho > 0.1 else 0.01
-    P_beta  = 3# if rho < 0.1 else 0
-    # adjusting alpha is useless if too close to the goal
-    P_alpha = 2# if rho > 0.1 else 0
-    print(f"rho: {rho}, alpha: {alpha/np.pi}pi, beta: {beta/np.pi}pi")
-
-    # Orientation considerations
-    # NOTE that to take this into account, we need the measured angle between -pi and pi, i.e. the standard odometry return
-    if alpha > -np.pi / 2 and alpha < np.pi / 2:
-        print("toward")
-        # We define that the robot is facing the goal
-        v = P_rho * rho
-        omega = P_alpha * alpha + P_beta * beta
-    else:
-        # The robot is facing the opposite direction
-        print("backward")
-        v = -P_rho * rho
-        sign_alpha = 1 if alpha < 0 else -1
-        omega = P_alpha * sign_alpha * (np.pi - abs(alpha)) + P_beta * beta
-
-    v = np.clip(v, -1, 1)
-    omega = np.clip(omega, -0.5, 0.5)
-    
-    print(f"v: {v}, omega: {omega}")
-    return v, omega
 
 class TargetCourse:
     def __init__(self, cx, cy):
@@ -482,7 +448,6 @@ class TargetCourse:
 
         return ind, Lf
 
-
 def pure_pursuit_steer_control(state:State, trajectory:TargetCourse, pind):
     ind, Lf = trajectory.search_target_index(state)
 
@@ -503,7 +468,6 @@ def pure_pursuit_steer_control(state:State, trajectory:TargetCourse, pind):
     # v, omega = simple_controller(state.x, state.y, tx, ty)
 
     return delta, ind
-
 
 if __name__ == '__main__':
     controller = TrajectoryTracker()
