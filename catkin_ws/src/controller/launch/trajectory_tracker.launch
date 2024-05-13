@@ -9,8 +9,8 @@
 	<!-- Trajectory Tracker -->
 	<node 
 		pkg             = "controller"
-		type            = "trajectory_tracker.py"
-		name            = "trajectory_tracker"
+		type            = "pure_pursuit_tracker.py"
+		name            = "pure_pursuit_tracker"
 		output          = "screen"
 		required        = "true">
 

@@ -50,7 +50,7 @@ class Localisation:
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
         self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)
-        # self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
+        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
         self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
 
         # Publisher
@@ -84,8 +84,8 @@ class Localisation:
         # Implement lecture L07 P10
         # Extract the updated change in both wheels at t
         # Update the pose estimate at t given the previous vodom z_t-1
-        delta_theta_l = data.left  #* TIME_STEP
-        delta_theta_r = data.right #* TIME_STEP
+        delta_theta_l = data.left
+        delta_theta_r = data.right
 
         # Map to Delta_s, Delta_psi
         self.Delta_s_t   = WHEEL_RADIUS / 2          * (delta_theta_l + delta_theta_r)

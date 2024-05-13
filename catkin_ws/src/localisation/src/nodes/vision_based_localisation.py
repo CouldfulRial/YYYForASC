@@ -25,7 +25,7 @@ from std_msgs.msg import Bool
 import numpy as np
 from tf.transformations import quaternion_from_euler, euler_from_matrix
 import cv2
-
+import math
 # Constants
 X = 1
 Y = 2
@@ -85,7 +85,7 @@ class VisionBasedLocalisation:
             if distance_vec[2] > 4:
                 continue
             
-            if id == 26 or id > 14:
+            if id == 26 or id > 30:
                 continue
 
             # Transformations
@@ -127,35 +127,45 @@ class VisionBasedLocalisation:
         # Decide x, y based on orientation
         # Mapping Camera measure to world frame
         if psi >= -np.pi/2 and psi <= np.pi/2: 
-           marker_x_wrt_c = T[2]*np.cos(psi)
-           marker_y_wrt_c = T[0]*np.cos(psi)
-           print('test',marker_y_wrt_c)
+           #marker_x_wrt_c = T[2]*np.cos(psi)
+           #marker_y_wrt_c = T[2]*np.sin(psi)
+           total_dis = math.sqrt(T[0]*T[0]+T[2]*T[2])
+           theta = math.acos(T[0]/total_dis)
+           marker_x_wrt_c = total_dis*np.cos((np.pi/2)-psi-theta)
+           marker_y_wrt_c = total_dis*np.sin((np.pi/2)-psi-theta)
+           #print('y direction', T[0])
+           print('test1',marker_y_wrt_c)
         if psi <= -np.pi/2 or psi >= np.pi/2:
-           marker_x_wrt_c = T[2]*np.cos(psi+np.pi)
-           marker_y_wrt_c = T[0]*np.cos(psi+np.pi)
+           total_dis = math.sqrt(T[0]*T[0]+T[2]*T[2])
+           theta = math.acos(T[0]/total_dis)
+           marker_x_wrt_c = total_dis*np.cos((np.pi/2)-psi-theta)
+           marker_y_wrt_c = total_dis*np.sin((np.pi/2)-psi-theta)
+
            print('test',marker_y_wrt_c)
-        # Deside world frame distance
+        # Decide world frame distance
         if marker_Psi >= np.pi/2:
            print(marker_Psi)
            x = marker_x - marker_x_wrt_c
            y = marker_y + marker_y_wrt_c
+           print('/n for y direction', y)
         if marker_Psi < np.pi/2:
            print('right')
            x = marker_x + marker_x_wrt_c
            y = marker_y - marker_y_wrt_c
-           
+        print(self)
         return x, y, psi
 
     def timer_callback(self, event):
         # Get current time
         self.current_time = rospy.Time.now()
-
+        
         # Publish odometry
         self.publish_odom()
         
         # Check if the last updated time is within timedout duration
         if self.current_time - self.last_recv > rospy.Duration(TIMED_OUT):
-            rospy.logwarn("No marker detected!")
+            if self.verbosity == 1:
+                rospy.logwarn("No marker detected!")
             self.vodom_failure_pub.publish(True)
         else:
             self.vodom_failure_pub.publish(False)

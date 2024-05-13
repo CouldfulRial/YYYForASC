@@ -46,8 +46,8 @@ class MotorModel:
 
     def update_encoder_callback(self, data):
         # Update the encoder counts to delta theta for both wheels in RADIAN
-        self.delta_theta_l = self.left_dir * data.left * RADIAN_PER_COUNT / TIME_STEP  # rad/s
-        self.delta_theta_r = self.right_dir * data.right * RADIAN_PER_COUNT / TIME_STEP  # rad/s
+        self.delta_theta_l = self.left_dir  * data.left  * RADIAN_PER_COUNT  # rad change in the dt
+        self.delta_theta_r = self.right_dir * data.right * RADIAN_PER_COUNT  # rad change in the dt
         self.seq = data.seq_num
 
         # log info

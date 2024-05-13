@@ -17,6 +17,7 @@ WHEEL_DIAMETER = 0.144  # m
 WHEEL_RADIUS = WHEEL_DIAMETER / 2
 WHEEL_BASE = 0.218  # m
 HALF_WHEEL_BASE = WHEEL_BASE / 2
+TIME_STEP = 0.1
 
 class Twist2WheelSpeeds:
     def __init__(self):
@@ -38,12 +39,12 @@ class Twist2WheelSpeeds:
         self.omega = 0
 
     def cmd_vel_callback(self, data):  # Topic at 10Hz
-        self.v = data.linear.x
-        self.omega = data.angular.z
+        self.v     = data.linear.x  # m/s
+        self.omega = data.angular.z # rad/s
 
     def timer_callback(self, event):  # To publish the speeds at 1Hz
-        left_speed = (self.v - self.omega * HALF_WHEEL_BASE) / WHEEL_RADIUS
-        right_speed = (self.v + self.omega * HALF_WHEEL_BASE) / WHEEL_RADIUS
+        left_speed = (self.v - self.omega * HALF_WHEEL_BASE) / WHEEL_RADIUS  * TIME_STEP
+        right_speed = (self.v + self.omega * HALF_WHEEL_BASE) / WHEEL_RADIUS * TIME_STEP
 
         # Publish
         self.duty_cycle_pub.publish(LeftRightFloat32(
