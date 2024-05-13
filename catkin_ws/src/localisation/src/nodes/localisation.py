@@ -49,18 +49,16 @@ class Localisation:
         
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
-        self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)
-        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)
-        self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
+        self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)  # 10Hz
+        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)               # 5 Hz
+        # self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
 
         # Publisher
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=10)
 
         # Initialise parameters
         self.delta_theta_l, self.delta_theta_r = 0.0, 0.0
-        self.Delta_s_t   = 0.0
-        self.Delta_psi_t = 0.0
-        self.z_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t-1
+        self.Delta_s_t, self.Delta_psi_t = 0.0, 0.0
         self.z_t = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t
         self.phat_t_given_t = np.array([0.0, 0.0, 0.0])  # pose estimate after fusion of odometry with CV update t
         self.phat_t_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t given the previous CV update t-1
@@ -80,11 +78,11 @@ class Localisation:
         # Timer: Calls the timer_callback function at frequency in Hz
         # The vodom will be published at 10Hz
         self.current_time = rospy.Time.now()
-        self.timer = rospy.Timer(rospy.Duration(0.2), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
 
-    def wodom_callback(self, data:LeftRightFloat32):
+    def wodom_callback(self, data:LeftRightFloat32):  #10Hz
         # Implement lecture L07 P10
-        # Extract the updated change in both wheels at t
+        # Extract the updated change in both wheels for the past 0.1s
         # Update the pose estimate at t given the previous vodom z_t-1
         self.delta_theta_l = data.left
         self.delta_theta_r = data.right
@@ -92,25 +90,42 @@ class Localisation:
         self.Delta_s_t   = WHEEL_RADIUS / 2          * (self.delta_theta_l + self.delta_theta_r)
         self.Delta_psi_t = WHEEL_RADIUS / WHEEL_BASE * (self.delta_theta_r - self.delta_theta_l)
 
-        ## Update Steps
-        # Update the predicted pose according to f_update
-        inside = self.z_t_1[PSI] + self.Delta_psi_t / 2
+        ## Prediction Step
+        # Based on the previous fused pose, update the pose given the wheel measurements
+        inside = self.phat_t_1_given_t_1[PSI] + self.Delta_psi_t / 2
         self.phat_t_given_t_1[X]   = self.phat_t_1_given_t_1[X]   + self.Delta_s_t * np.cos(inside)
         self.phat_t_given_t_1[Y]   = self.phat_t_1_given_t_1[Y]   + self.Delta_s_t * np.sin(inside)
         self.phat_t_given_t_1[PSI] = self.phat_t_1_given_t_1[PSI] + self.Delta_psi_t
 
-        # Update the predicted covariance
+        # Update the pose covariance matrix
         self.update_pose_cov(self.delta_theta_l, self.delta_theta_r, inside, self.Delta_s_t)
 
-    def vodom_callback(self, data:Odometry):
-        # Based on the vision-based localisation
-        # Extract the current pose z_t
+        # Step forward
+        self.phat_t_1_given_t_1 = self.phat_t_given_t_1
+        self.pose_cov_t_1_given_t_1 = self.pose_cov_t_given_t_1
+
+        self.phat_t_given_t = self.phat_t_given_t_1  # Temp
+
+    def vodom_callback(self, data:Odometry):  # 5Hz
+        # Based on the vision-based localisation, update the current pose z_t
         x = data.pose.pose.position.x
         y = data.pose.pose.position.y
         psi = self.quat_to_euler(data.pose.pose.orientation)
-
-        # Update the current pose z_t
         self.z_t = np.array([x, y, psi])
+
+        ## Update Step
+        # Update Kalman gain Kt
+        self.Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
+
+        # Update the pose estimate
+        self.phat_t_given_t = self.phat_t_given_t_1 + self.Kt @ (self.z_t - self.phat_t_given_t_1)
+
+        # Update the covariance matrix
+        self.pose_cov_t_given_t = self.pose_cov_t_given_t_1 - self.Kt @ (self.pose_cov_t_given_t_1 + self.cv_cov_t) @ np.transpose(self.Kt)
+
+        # Step forward
+        self.phat_t_1_given_t_1 = self.phat_t_given_t
+        self.pose_cov_t_1_given_t_1 = self.pose_cov_t_given_t
 
     def vfail_callback(self, data:Bool):
         if data.data:
@@ -147,27 +162,9 @@ class Localisation:
                                     theta_jacobians @ theta_covariance            @ np.transpose(theta_jacobians)
 
     def timer_callback(self, event):
-        ## Update Step
-        # Update Kalman gain Kt
-        self.Kt = self.pose_cov_t_given_t_1 @ np.linalg.inv(self.pose_cov_t_given_t_1 + self.cv_cov_t)
-
-        # Update the pose estimate
-        self.phat_t_given_t = self.phat_t_given_t_1 + self.Kt @ (self.z_t - self.phat_t_given_t_1)
-
-        # Update the covariance matrix
-        self.pose_cov_t_1_given_t_1 = self.pose_cov_t_given_t
-        if not self.vodom_failure:
-            self.pose_cov_t_given_t = self.pose_cov_t_given_t_1 - self.Kt @ (self.pose_cov_t_given_t_1 + self.cv_cov_t) @ np.transpose(self.Kt)
-        else:
-            self.pose_cov_t_given_t = self.pose_cov_t_given_t_1
-
-        # Publish the odom at a fixed rate
+        # Publish the odom
         self.current_time = rospy.Time.now()
         self.publish_odom()
-
-        # Step forward
-        self.phat_t_1_given_t_1 = self.phat_t_given_t
-        self.z_t_1 = self.z_t
 
     def publish_odom(self):
         # Create the odometry message

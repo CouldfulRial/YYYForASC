@@ -55,11 +55,11 @@ class VisionBasedLocalisation:
         self.current_time = rospy.Time.now()
         # Timer: Calls the timer_callback function at frequency in Hz
         # The vodom will be published at 10Hz
-        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
+        # self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
 
         # Publisher
-        self.vodom_pub = rospy.Publisher("vodom", Odometry, queue_size=10)
-        self.vodom_failure_pub = rospy.Publisher("vodom_failure", Bool, queue_size=10)
+        self.vodom_pub = rospy.Publisher("vodom", Odometry, queue_size=10)  # Vodom is publishing at the same rate as the aruco detector
+        # self.vodom_failure_pub = rospy.Publisher("vodom_failure", Bool, queue_size=10)
 
         # Initialise parameters and data
         self.x, self.y, self.psi = 0.0, 0.0, 0.0
@@ -112,6 +112,12 @@ class VisionBasedLocalisation:
 
             # Track the last updated time
             self.last_recv = rospy.Time.now()
+
+        # Get current time
+        self.current_time = rospy.Time.now()
+        
+        # Publish odometry
+        self.publish_odom()
 
     def get_position(self, T, marker_id, theta):
         # Get marker position
