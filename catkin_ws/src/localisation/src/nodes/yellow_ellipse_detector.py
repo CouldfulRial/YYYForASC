@@ -11,10 +11,14 @@ class YellowEllipseDetector:
         rospy.init_node(self.node_name)
 
         # Subscriber to the camera image topic
-        self.image_sub = rospy.Subscriber("/camera/image_raw", Image, self.image_callback)
+        self.image_sub = rospy.Subscriber("/asc/camera_image", Image, self.image_callback)
         
         # To convert ROS images to OpenCV format
         self.bridge = CvBridge()
+    def save_image(self, image, time):
+       f"{self.save_path}/mask_{int(time)}.png"
+       cv2.imwrite(filename, image)
+       rospy.loginfo(f"Saved mask image at {filename}")
 
     def image_callback(self, data):
         try:
@@ -28,8 +32,8 @@ class YellowEllipseDetector:
         hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
         
         # Define range of yellow color in HSV
-        lower_yellow = np.array([20, 100, 100])
-        upper_yellow = np.array([30, 255, 255])
+        lower_yellow = np.array([20, 30, 150])
+        upper_yellow = np.array([35, 155, 255])
         
         # Threshold the HSV image to get only yellow colors
         mask = cv2.inRange(hsv_image, lower_yellow, upper_yellow)
@@ -39,14 +43,21 @@ class YellowEllipseDetector:
         
         # Fit ellipses to contours found
         for contour in contours:
-            if len(contour) >= 5:  # Need at least 5 points to fit ellipse
+            area = cv2.contourArea(contour)
+            if area >= 5000:
+                print("total area is:",area)
+                ## if len(contour) >= 5:  # Need at least 5 points to fit ellipse
                 ellipse = cv2.fitEllipse(contour)
-                cv2.ellipse(cv_image, ellipse, (0, 255, 0), 2)
-
+                (x,y),(MA,ma),angle = ellipse
+                cv2.ellipse(mask, ellipse, (0, 255, 0), 2)
+                cv2.imshow("22",mask)
+                print("amd,yes")
+                print("x & y are",x,y)
+                self.save_image(cv_image,1)
+                #cv2.imshow("33",binary_image)
         # Display the resulting frame
-        cv2.imshow('Detected Yellow Ellipses', cv_image)
+        
         cv2.waitKey(3)
-
 def main():
     try:
         yellow_ellipse_detector = YellowEllipseDetector()

@@ -165,6 +165,7 @@ catkin_install_python(PROGRAMS
   src/nodes/wheel_odometry.py
   src/nodes/vision_based_localisation.py
   src/nodes/localisation.py
+  src/nodes/yellow_ellipse_detector.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
