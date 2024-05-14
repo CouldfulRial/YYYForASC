@@ -17,102 +17,106 @@ from geometry_msgs.msg import Twist, Vector3, Pose2D
 import tf
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy as np
 
 # Parmeters
 TIME_STEP = 0.1  # s
-SPEED = 0.3  # m/s
 k = 0.1  # look forward gain
-Lfc = 0.8  # [m] look-ahead distance
-Kp = 1.0  # speed proportional gain
-dt = 0.1  # [s] time tick
-WB = 0.218  # [m] wheel base of vehicle
-# PATH = [
-#     np.array([0.0000, 0.0000]),
-#     np.array([0.0591, 0.0807]),
-#     np.array([0.1256, 0.1553]),
-#     np.array([0.2088, 0.2109]),
-#     np.array([0.2914, 0.2672]),
-#     np.array([0.3318, 0.3587]),
-#     np.array([0.4201, 0.4057]),
-#     np.array([0.5021, 0.4628]),
-#     np.array([0.5655, 0.5402]),
-#     np.array([0.6557, 0.5834]),
-#     np.array([0.7238, 0.6566]),
-#     np.array([0.8079, 0.7107]),
-#     np.array([0.8882, 0.7702]),
-#     np.array([0.9627, 0.8369]),
-#     np.array([1.0029, 0.9285]),
-#     np.array([1.0641, 1.0076]),
-#     np.array([1.1051, 1.0988]),
-#     np.array([1.1850, 1.1588]),
-#     np.array([1.2472, 1.2372]),
-#     np.array([1.2893, 1.3279]),
-#     np.array([1.3540, 1.4041]),
-#     np.array([1.4111, 1.4862]),
-#     np.array([1.4886, 1.5495]),
-#     np.array([1.5356, 1.6377]),
-#     np.array([1.6057, 1.7091]),
-#     np.array([1.6823, 1.7733]),
-#     np.array([1.7764, 1.8073]),
-#     np.array([1.8589, 1.8639]),
-#     np.array([1.9433, 1.9175]),
-#     np.array([2.0141, 1.9880]),
-#     np.array([2.0000, 2.0000])
-# ]
+Lfc = 0.45  # [m] look-ahead distance
+T = 20  #s, for simulation
+
+## Controller
+# P
+P_rho = 2
+P_beta = 0#1
+P_alpha = 2.5
+# I
+I_rho = 0
+I_beta = 0#0.0001
+I_alpha = 0.0001
+# D
+D_rho = 0
+D_beta = 0#10
+D_alpha = 50
 
 PATH = [
-    np.array([0.0000, 0.0000]),
-    np.array([0.2648, -0.0529]),
-    np.array([0.5263, -0.1045]),
-    np.array([0.7815, -0.1538]),
-    np.array([1.0270, -0.1995]),
-    np.array([1.2596, -0.2404]),
-    np.array([1.4762, -0.2754]),
-    np.array([1.6735, -0.3032]),
-    np.array([1.8483, -0.3227]),
-    np.array([1.9974, -0.3326]),
-    np.array([2.1176, -0.3317]),
-    np.array([2.2056, -0.3189]),
-    np.array([2.2583, -0.2930]),
-    np.array([2.2725, -0.2528]),
-    np.array([2.2449, -0.1971]),
-    np.array([2.1723, -0.1246]),
-    np.array([2.0515, -0.0343]),
-    np.array([1.8799, 0.0750]),
-    np.array([1.6610, 0.2025]),
-    np.array([1.4027, 0.3465]),
-    np.array([1.1127, 0.5051]),
-    np.array([0.7988, 0.6764]),
-    np.array([0.4689, 0.8586]),
-    np.array([0.1307, 1.0500]),
-    np.array([-0.2079, 1.2486]),
-    np.array([-0.5392, 1.4526]),
-    np.array([-0.8554, 1.6602]),
-    np.array([-1.1486, 1.8695]),
-    np.array([-1.4111, 2.0787]),
-    np.array([-1.6350, 2.2860]),
-    np.array([-1.8125, 2.4896]),
-    np.array([-1.9359, 2.6875]),
-    np.array([-1.9973, 2.8780]),
-    np.array([-1.9891, 3.0593]),
-    np.array([-1.9080, 3.2304]),
-    np.array([-1.7580, 3.3918]),
-    np.array([-1.5438, 3.5443]),
-    np.array([-1.2699, 3.6884]),
-    np.array([-0.9410, 3.8248]),
-    np.array([-0.5615, 3.9541]),
-    np.array([-0.1362, 4.0770]),
-    np.array([0.3304, 4.1941]),
-    np.array([0.8338, 4.3061]),
-    np.array([1.3693, 4.4136]),
-    np.array([1.9324, 4.5172]),
-    np.array([2.5183, 4.6176]),
-    np.array([3.1227, 4.7155]),
-    np.array([3.7408, 4.8114]),
-    np.array([4.3681, 4.9060]),
-    np.array([5.0000, 5.0000])
+    np.array([0.0, 0.0]), np.array([-0.3, -0.3]), np.array([-0.6, -0.6]), np.array([-0.6, -0.8999999999999999]), np.array([-0.6, -1.2]), np.array([-0.6, -1.5]), np.array([-0.6, -1.7999999999999998]), np.array([-0.6, -2.1]), np.array([-0.6, -2.4]), np.array([-0.3, -2.6999999999999997]), np.array([0.0, -3.0]),
+    np.array([0.0, -3.0]), np.array([0.3, -3.0]), np.array([0.6, -3.0]), np.array([0.8999999999999999, -3.0]), np.array([1.2, -3.0]), np.array([1.5, -3.0]), np.array([1.7999999999999998, -3.0]), np.array([2.1, -3.0]), np.array([2.4, -3.0]), np.array([2.6999999999999997, -3.0]), np.array([3.0, -3.0]),
+    np.array([3.0, -3.0]), np.array([3.0, -2.6999999999999997]), np.array([3.0, -2.4]), np.array([3.0, -2.1]), np.array([3.0, -1.7999999999999998]), np.array([3.0, -1.5]), np.array([3.0, -1.2]), np.array([3.0, -0.8999999999999999]), np.array([3.0, -0.6]), np.array([3.0, -0.3]), np.array([3.0, 0.0]), np.array([3.0, 0.3]), np.array([3.0, 0.6]), np.array([3.0, 0.8999999999999999]), np.array([3.3, 1.2]), np.array([3.5999999999999996, 1.5]), np.array([3.9, 1.7999999999999998]),
+    np.array([3.9, 1.7999999999999998]), np.array([3.9, 1.5]), np.array([3.9, 1.2]), np.array([3.9, 0.8999999999999999]), np.array([3.9, 0.6]), np.array([3.9, 0.3]), np.array([3.9, 0.0])
 ]
 
+"""
+    Path tracking simulation with pure pursuit steering and PID speed control.
+    author: Atsushi Sakai (@Atsushi_twi)
+            Guillaume Jacquenot (@Gjacquenot)
+"""
+class State:
+    '''
+    This class defines the state of the vehicle
+    '''
+    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0):
+        self.x = x
+        self.y = y
+        self.yaw = yaw
+        self.v = v
+
+    def input(self, a, delta):
+        # Publish the new command v and omega
+        cmd_omega = delta
+        cmd_v = self.v + a * TIME_STEP
+
+        return cmd_v, cmd_omega
+
+    def update(self, x, y, yaw, v, omega):
+        # Update the current x, y, psi, v and omega
+        self.x = x
+        self.y = y
+        self.yaw = yaw
+        self.v = v
+        self.omega = omega
+
+    def calc_distance(self, point_x, point_y):
+        dx = self.x - point_x
+        dy = self.y - point_y
+        return np.hypot(dx, dy)
+
+class TargetCourse:
+    def __init__(self, cx, cy):
+        self.cx = cx
+        self.cy = cy
+        self.old_nearest_point_index = None
+
+    def search_target_index(self, state:State):
+
+        # To speed up nearest point search, doing it at only first time.
+        if self.old_nearest_point_index is None:
+            # search nearest point index
+            dx = [state.x - icx for icx in self.cx]
+            dy = [state.y - icy for icy in self.cy]
+            d = np.hypot(dx, dy)
+            ind = np.argmin(d)
+            self.old_nearest_point_index = ind
+        else:
+            ind = self.old_nearest_point_index
+            distance_this_index = state.calc_distance(self.cx[ind], self.cy[ind])
+            while True:
+                distance_next_index = state.calc_distance(self.cx[ind + 1], self.cy[ind + 1])
+                if distance_this_index < distance_next_index:
+                    break
+                ind = ind + 1 if (ind + 1) < len(self.cx)-1 else ind
+                distance_this_index = distance_next_index
+            self.old_nearest_point_index = ind
+
+        Lf = k * state.v + Lfc  # update look ahead distance
+
+        # search look ahead target point index
+        while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
+            if (ind + 1) >= len(self.cx):
+                break  # not exceed goal
+            ind += 1
+
+        return ind, Lf
 
 class TrajectoryTracker:
     def __init__(self):
@@ -133,17 +137,27 @@ class TrajectoryTracker:
 
         # Initialise the variables
         self.state = State(x=0.0, y=0.0, yaw=0.0, v=0.0)
-        self.target_x, self.target_y = 0.0, 0.0
-        # self.cx = np.array([point[0] for point in PATH])
-        # self.cy = np.array([point[1] for point in PATH])
-        self.cx = np.arange(0, 2.5, 0.1)
-        self.cy = np.array([np.sin(ix*3) * 1 for ix in self.cx])
+        self.target_x = self.target_y = 0.0
+        self.cx = np.array([point[0]/2 for point in PATH])
+        self.cy = np.array([point[1]/2 for point in PATH])
+        # self.cx = np.arange(0, 5, 0.1)
+        # self.cy = np.zeros_like(self.cx)#self.cx
+        # self.cy = np.array([np.sin(ix*2) * 0.5 for ix in self.cx])
         # self.cx = np.arange(0, 50, 0.1)
         # self.cy = np.zeros_like(self.cx)
         self.target_course = TargetCourse(self.cx, self.cy)
         self.target_ind = 0
-        self.v, self.omega = 0.0, 0.0
-        self.current_time = rospy.Time.now().to_sec()
+        self.v = self.omega = 0.0
+        self.ini_time = rospy.Time.now()
+        self.current_time = 0.0
+        if self.simulate == 1:
+            self.beta_sig = 0.0
+
+        # Controller variables
+        self.rho       = self.beta       = self.alpha       = 0.0
+        self.rhoi      = self.betai      = self.alphai      = 0.0
+        self.rhod      = self.betad      = self.alphad      = 0.0
+        self.last_rho  = self.last_beta  = self.last_alpha  = 0.0
 
         # Subscribers
         self.path_subscriber = rospy.Subscriber('path', Path, self.path_callback)
@@ -167,10 +181,11 @@ class TrajectoryTracker:
             self.target_x_list = [0]
             self.target_y_list = [0]
             self.target_yaw_list = [0]
+            self.omega_list = [0]
             # Get save path. Set the file name to the intial time
             self.save_path = self.get_save_path()
-            intial_time = datetime.datetime.now()
-            self.formatted_time = intial_time.strftime('%y%m%d_%H_%M_%S')
+            initial_time = datetime.datetime.now()
+            self.formatted_time = initial_time.strftime('%y%m%d_%H_%M_%S')
 
     def path_callback(self, data):
         pass
@@ -186,19 +201,22 @@ class TrajectoryTracker:
     def timer_callback(self, event):
         # Execute the control loop
         self.v, self.omega = self.pure_pursuit_controller()
-        # v = np.clip(v, -1, 1)
-        # omega = np.clip(omega, -0.4, 0.4)
 
         # Logging
         if self.verbosity == 1:
-            x = self.state.x
-            y = self.state.y
-            yaw = self.state.yaw
-            tx = self.target_x
-            ty = self.target_y
-            rospy.loginfo("-"*25 + self.node_name + "-"*25 +
-                        f"\nx: {x:3.5f}, y: {y:3.5f}, yaw: {yaw/np.pi:3.5f}pi" +
-                        f"\ntarget: ({tx:3.5f}, {ty:3.5f})" + 
+            rospy.loginfo("-"*20 + self.node_name + "-"*20 +
+                        f"\n\nRobot State: {self.current_time:.2f}s"
+                        f"\nx: {self.state.x:3.5f}, y: {self.state.y:3.5f}, yaw: {self.state.yaw/np.pi:3.5f}pi" +
+                        f"\nv: {self.state.v:3.5f}" +
+                        "\n\nCurrent Targeting: "
+                        f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.beta/np.pi:3.5f}pi)" + 
+                        "\n\nController Variables: "
+                        "\nrho: "
+                        f"\nP:{self.rho:3.5f}, I:{self.rhoi:3.5f}, D:{self.rhod:3.5f}" + 
+                        "\nbeta: "
+                        f"\nP:{self.beta:3.5f}, I:{self.betai:3.5f}, D:{self.betad:3.5f}" + 
+                        "\nalpha: "
+                        f"\nP:{self.alpha:3.5f}, I:{self.alphai:3.5f}, D:{self.alphad:3.5f}" + 
                         f"\ncmd_v: {self.v:3.5f}, cmd_omega: {self.omega:3.5f}" + 
                         "\n")
 
@@ -212,17 +230,20 @@ class TrajectoryTracker:
 
         # Data saving
         if self.save_data == 1:
-            self.current_time = rospy.Time.now().to_sec()
+            self.current_time = (rospy.Time.now() - self.ini_time).to_sec()
             self.time_list.append(self.current_time)
-            self.x_list.append(x)
-            self.y_list.append(y)
-            self.yaw_list.append(yaw)
-            self.target_x_list.append(tx)
-            self.target_y_list.append(ty)
-            # self.target_yaw_list.append(self.target_yaw)
+            self.x_list.append(self.state.x)
+            self.y_list.append(self.state.y)
+            self.yaw_list.append(self.state.yaw)
+            self.target_x_list.append(self.target_x)
+            self.target_y_list.append(self.target_y)
+            self.target_yaw_list.append(self.beta)
+            self.omega_list.append(self.omega)
 
     def pure_pursuit_controller(self):
-        if self.target_ind >= len(self.cx)-1:
+        if (self.target_ind >= len(self.cx)-1) and (self.rho < 0.2):
+            # Shut down
+            rospy.signal_shutdown("Target Reached")
             return 0.0, 0.0
 
         self.target_ind, _ = self.target_course.search_target_index(self.state)
@@ -231,11 +252,82 @@ class TrajectoryTracker:
         self.target_x, self.target_y = self.cx[self.target_ind], self.cy[self.target_ind]
 
         # Calc control input
-        ai = proportional_control(SPEED, self.state.v)
-        delta, self.target_ind = pure_pursuit_steer_control(self.state, self.target_course, self.target_ind)
+        v, omega, self.target_ind = self.pure_pursuit_steer_control(self.state, self.target_course, self.target_ind)
 
-        v, omega = self.state.input(ai, delta, self.cmd_vel_publisher)  # Control vehicle
+        v = np.clip(v, -0.2, 0.2)
+        omega = np.clip(omega, -np.pi, np.pi)
         return v, omega
+
+    def pure_pursuit_steer_control(self, state:State, trajectory:TargetCourse, pind):
+        ind, Lf = trajectory.search_target_index(state)
+
+        if pind >= ind:
+            ind = pind
+
+        ## Get the current target point
+        if ind < len(trajectory.cx):
+            tx = trajectory.cx[ind]
+            ty = trajectory.cy[ind]
+        else:  # toward goal
+            tx = trajectory.cx[-1]
+            ty = trajectory.cy[-1]
+            ind = len(trajectory.cx) - 1
+
+        ## Get the current vehicle position
+        x = state.x
+        y = state.y
+
+        ## Get error position
+        ex = tx - x
+        ey = ty - y
+
+        ## P
+        # The linear distance to the goal
+        self.rho = np.hypot(ex, ey)
+        # The angle between the goal theta and the current position of the robot
+        self.beta = np.arctan2(ey, ex)
+        # Intended angle between the robot and the direction of rho
+        self.alpha = TrajectoryTracker.wrap_angle(self.beta - state.yaw)
+
+        ## I
+        self.rhoi += self.rho
+        self.betai += self.beta
+        self.alphai += self.alpha
+
+        ## D
+        self.rhod = self.rho - self.last_rho
+        self.betad = self.beta - self.last_beta
+        self.alphad = self.alpha - self.last_alpha
+
+        # Orientation consideration
+        # if self.alpha > -np.pi / 2 and self.alpha < np.pi / 2:
+        #     pass
+        # else:
+        #     self.rho = -self.rho
+        #     sign_alpha = 1 if self.alpha < 0 else -1
+        #     self.alpha = sign_alpha * (np.pi - abs(self.alpha))
+
+        # Limit speed if trying to steering. Hence, the gain should inversly p to abs(alpha)
+        # P = P_rho * (1 - abs(self.alpha) / np.pi)
+        P = 1 / (abs(self.alpha) + 1 / P_rho)
+
+        ## Calculate the inputs to the robot
+        acc   = P   * self.rho   + I_rho   * self.rhoi   + D_rho   * self.rhod
+        delta = P_beta  * self.beta  + I_beta  * self.betai  + D_beta  * self.betad + \
+                P_alpha * self.alpha + I_alpha * self.alphai + D_alpha * self.alphad
+
+        ## Return the control inputs
+        # v, omega = state.input(acc, delta)
+        
+        v = acc
+        omega = delta
+
+        ## Update the error terms
+        self.last_rho = self.rho
+        self.last_beta = self.beta
+        self.last_alpha = self.alpha
+
+        return v, omega, ind
 
     ##############################################################################################################
     ############################## Untilities ####################################################################
@@ -254,9 +346,6 @@ class TrajectoryTracker:
         else:
             return 0  # If intialised to None, return 0
 
-    ##############################################################################################################
-    ############################## The following codes are not relevant to algorithm ##############################
-    ##############################################################################################################
     def shutdown_callback(self):
         self.cmd_vel_publisher.publish(
             Twist(
@@ -316,7 +405,8 @@ class TrajectoryTracker:
 
         ax3 = plt.subplot(3, 1, 3)
         plt.plot(self.time_list, self.yaw_list, label='Yaw Position')
-        # plt.plot(self.time_list, self.target_yaw_list, label='Yaw Target')
+        plt.plot(self.time_list, self.target_yaw_list, label='Yaw Target')
+        # plt.plot(self.time_list, self.omega_list, label='Omega')
         plt.xlabel('Time (s)')
         plt.ylabel('Yaw (rad)')
         plt.legend()
@@ -351,9 +441,17 @@ class TrajectoryTracker:
     def data(self):
         with open(f'{self.save_path}pure_pursuit_controller_{self.formatted_time}.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Time (s)', 'X Position (m)', 'Y Position (m)', "Yaw (rad)"])
+            writer.writerow(['Time (s)', 
+                             'X Position (m)', 
+                             'Y Position (m)', 
+                             "Yaw (rad)", 
+                             "Omega (rad/s)"])
             for i in range(len(self.time_list)):
-                writer.writerow([self.time_list[i], self.x_list[i], self.y_list[i], self.yaw_list[i]])
+                writer.writerow([self.time_list[i], 
+                                 self.x_list[i], 
+                                 self.y_list[i], 
+                                 self.yaw_list[i], 
+                                 self.omega_list[i]])
 
     @staticmethod
     def get_save_path():
@@ -361,113 +459,6 @@ class TrajectoryTracker:
         return rospack.get_path("controller") + '/src/data/'
 
 
-"""
-
-Path tracking simulation with pure pursuit steering and PID speed control.
-
-author: Atsushi Sakai (@Atsushi_twi)
-        Guillaume Jacquenot (@Gjacquenot)
-
-"""
-
-class State:
-    '''
-    This class defines the state of the vehicle
-    '''
-    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0):
-        self.x = x
-        self.y = y
-        self.yaw = yaw
-        self.v = v
-
-    def input(self, a, delta, publisher:rospy.Publisher, stop=False):
-        # Publish the new command v and omega
-        cmd_omega = self.v / WB * np.tan(delta) * 2.5
-        cmd_v = self.v + a * dt
-
-        return cmd_v, cmd_omega
-        
-        # print(f"cmd_v: {cmd_v}, cmd_omega: {cmd_omega}")
-        # if publisher is not None:
-        #     if stop:
-        #         publisher.publish(Twist(Vector3(0, 0, 0), Vector3(0, 0, 0)))
-        #     publisher.publish(Twist(Vector3(cmd_v, 0, 0), Vector3(0, 0, cmd_omega)))
-
-    def update(self, x, y, yaw, v, omega):
-        # Update the current x, y, psi, v and omega
-        self.x = x
-        self.y = y
-        self.yaw = yaw
-        self.v = v
-        self.omega = omega
-
-    def calc_distance(self, point_x, point_y):
-        dx = self.x - point_x
-        dy = self.y - point_y
-        return np.hypot(dx, dy)
-
-def proportional_control(target, current):
-    a = Kp * (target - current)
-
-    return a
-
-class TargetCourse:
-    def __init__(self, cx, cy):
-        self.cx = cx
-        self.cy = cy
-        self.old_nearest_point_index = None
-
-    def search_target_index(self, state:State):
-
-        # To speed up nearest point search, doing it at only first time.
-        if self.old_nearest_point_index is None:
-            # search nearest point index
-            dx = [state.x - icx for icx in self.cx]
-            dy = [state.y - icy for icy in self.cy]
-            d = np.hypot(dx, dy)
-            ind = np.argmin(d)
-            self.old_nearest_point_index = ind
-        else:
-            ind = self.old_nearest_point_index
-            distance_this_index = state.calc_distance(self.cx[ind], self.cy[ind])
-            while True:
-                distance_next_index = state.calc_distance(self.cx[ind + 1], self.cy[ind + 1])
-                if distance_this_index < distance_next_index:
-                    break
-                ind = ind + 1 if (ind + 1) < len(self.cx) else ind
-                distance_this_index = distance_next_index
-            self.old_nearest_point_index = ind
-
-        Lf = k * state.v + Lfc  # update look ahead distance
-
-        # search look ahead target point index
-        while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
-            if (ind + 1) >= len(self.cx):
-                break  # not exceed goal
-            ind += 1
-
-        return ind, Lf
-
-def pure_pursuit_steer_control(state:State, trajectory:TargetCourse, pind):
-    ind, Lf = trajectory.search_target_index(state)
-
-    if pind >= ind:
-        ind = pind
-
-    if ind < len(trajectory.cx):
-        tx = trajectory.cx[ind]
-        ty = trajectory.cy[ind]
-    else:  # toward goal
-        tx = trajectory.cx[-1]
-        ty = trajectory.cy[-1]
-        ind = len(trajectory.cx) - 1
-
-    alpha = np.arctan2(ty - state.y, tx - state.x) - state.yaw
-    delta = np.arctan2(2.0 * WB * np.sin(alpha) / Lf, 1.0)
-
-    # v, omega = simple_controller(state.x, state.y, tx, ty)
-
-    return delta, ind
 
 if __name__ == '__main__':
     controller = TrajectoryTracker()
