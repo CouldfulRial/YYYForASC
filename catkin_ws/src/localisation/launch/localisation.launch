@@ -3,7 +3,7 @@
 	<!-- This launch file launch the wheel odometry, the vision-based localisation and the fused localisation -->
 
 	<!-- Vision-based Localisation -->
-	<!-- <include file    = "$(find localisation)/launch/vision_based_localisation.launch" /> -->
+	<include file    = "$(find localisation)/launch/vision_based_localisation.launch" />
 
 	<!-- Fused Localisation -->
 	<node
@@ -16,4 +16,6 @@
 		<param name     = "verbosity" value = "0" />
 	</node>
 
+	<!-- Motors -->
+	<!-- <include file    = "$(find controller)/launch/motors.launch" /> -->
 </launch>
