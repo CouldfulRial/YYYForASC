@@ -1,10 +1,13 @@
 <launch>
 
-	<!-- Motors -->
-	<include file    = "$(find controller)/launch/motors.launch" />
+	<!-- Motors (should be launched by localisation) -->
+	<!-- <include file    = "$(find controller)/launch/motors.launch" /> -->
 
 	<!-- Localisation -->
 	<include file    = "$(find localisation)/launch/localisation.launch" />
+
+	<!-- Navigation -->
+	<include file    = "$(find navigation)/launch/navigation.launch" />
 
 	<!-- Trajectory Tracker -->
 	<node 

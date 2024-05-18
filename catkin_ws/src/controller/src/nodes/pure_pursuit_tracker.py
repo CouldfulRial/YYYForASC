@@ -22,14 +22,13 @@ import numpy as np
 # Parmeters
 TIME_STEP = 0.1  # s
 k = 0.1  # look forward gain
-Lfc = 0.45  # [m] look-ahead distance
-T = 20  #s, for simulation
+Lfc = 0.5  # [m] look-ahead distance
 
 ## Controller
 # P
 P_rho = 2
 P_beta = 0#1
-P_alpha = 2.5
+P_alpha = 1
 # I
 I_rho = 0
 I_beta = 0#0.0001
@@ -38,13 +37,6 @@ I_alpha = 0.0001
 D_rho = 0
 D_beta = 0#10
 D_alpha = 50
-
-PATH = [
-    np.array([0.0, 0.0]), np.array([-0.3, -0.3]), np.array([-0.6, -0.6]), np.array([-0.6, -0.8999999999999999]), np.array([-0.6, -1.2]), np.array([-0.6, -1.5]), np.array([-0.6, -1.7999999999999998]), np.array([-0.6, -2.1]), np.array([-0.6, -2.4]), np.array([-0.3, -2.6999999999999997]), np.array([0.0, -3.0]),
-    np.array([0.0, -3.0]), np.array([0.3, -3.0]), np.array([0.6, -3.0]), np.array([0.8999999999999999, -3.0]), np.array([1.2, -3.0]), np.array([1.5, -3.0]), np.array([1.7999999999999998, -3.0]), np.array([2.1, -3.0]), np.array([2.4, -3.0]), np.array([2.6999999999999997, -3.0]), np.array([3.0, -3.0]),
-    np.array([3.0, -3.0]), np.array([3.0, -2.6999999999999997]), np.array([3.0, -2.4]), np.array([3.0, -2.1]), np.array([3.0, -1.7999999999999998]), np.array([3.0, -1.5]), np.array([3.0, -1.2]), np.array([3.0, -0.8999999999999999]), np.array([3.0, -0.6]), np.array([3.0, -0.3]), np.array([3.0, 0.0]), np.array([3.0, 0.3]), np.array([3.0, 0.6]), np.array([3.0, 0.8999999999999999]), np.array([3.3, 1.2]), np.array([3.5999999999999996, 1.5]), np.array([3.9, 1.7999999999999998]),
-    np.array([3.9, 1.7999999999999998]), np.array([3.9, 1.5]), np.array([3.9, 1.2]), np.array([3.9, 0.8999999999999999]), np.array([3.9, 0.6]), np.array([3.9, 0.3]), np.array([3.9, 0.0])
-]
 
 """
     Path tracking simulation with pure pursuit steering and PID speed control.
@@ -108,7 +100,7 @@ class TargetCourse:
                 distance_this_index = distance_next_index
             self.old_nearest_point_index = ind
 
-        Lf = k * state.v + Lfc  # update look ahead distance
+        Lf = Lfc
 
         # search look ahead target point index
         while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
@@ -138,13 +130,7 @@ class TrajectoryTracker:
         # Initialise the variables
         self.state = State(x=0.0, y=0.0, yaw=0.0, v=0.0)
         self.target_x = self.target_y = 0.0
-        self.cx = np.array([point[0]/2 for point in PATH])
-        self.cy = np.array([point[1]/2 for point in PATH])
-        # self.cx = np.arange(0, 5, 0.1)
-        # self.cy = np.zeros_like(self.cx)#self.cx
-        # self.cy = np.array([np.sin(ix*2) * 0.5 for ix in self.cx])
-        # self.cx = np.arange(0, 50, 0.1)
-        # self.cy = np.zeros_like(self.cx)
+        self.cx = self.cy = np.array([0.0])
         self.target_course = TargetCourse(self.cx, self.cy)
         self.target_ind = 0
         self.v = self.omega = 0.0
@@ -174,21 +160,23 @@ class TrajectoryTracker:
 
         # Intialise data saving
         if self.save_data == 1:
-            self.time_list = [0]
-            self.x_list = [0]
-            self.y_list = [0]
-            self.yaw_list = [0]
-            self.target_x_list = [0]
-            self.target_y_list = [0]
-            self.target_yaw_list = [0]
-            self.omega_list = [0]
+            self.time_list = []
+            self.x_list = []
+            self.y_list = []
+            self.yaw_list = []
+            self.target_x_list = []
+            self.target_y_list = []
+            self.target_yaw_list = []
+            self.omega_list = []
             # Get save path. Set the file name to the intial time
             self.save_path = self.get_save_path()
             initial_time = datetime.datetime.now()
             self.formatted_time = initial_time.strftime('%y%m%d_%H_%M_%S')
 
-    def path_callback(self, data):
-        pass
+    def path_callback(self, data:Path):
+        # Extract the planned path to self.cx, self.cy
+        self.cx = np.array([point.pose.position.x for point in data.poses])
+        self.cy = np.array([point.pose.position.y for point in data.poses])
 
     def odom_callback(self, data:Odometry):
         # Update the robot state
@@ -209,6 +197,9 @@ class TrajectoryTracker:
                         f"\nx: {self.state.x:3.5f}, y: {self.state.y:3.5f}, yaw: {self.state.yaw/np.pi:3.5f}pi" +
                         f"\nv: {self.state.v:3.5f}" +
                         "\n\nCurrent Targeting: "
+                        f"\nind: {self.target_ind}, Lf: {Lfc:3.5f}" +
+                        f"\ncx: {self.cx}" +
+                        f"\ncy: {self.cy}" +
                         f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.beta/np.pi:3.5f}pi)" + 
                         "\n\nController Variables: "
                         "\nrho: "
@@ -229,7 +220,7 @@ class TrajectoryTracker:
         )
 
         # Data saving
-        if self.save_data == 1:
+        if self.save_data == 1 and self.state.x != 0.0:
             self.current_time = (rospy.Time.now() - self.ini_time).to_sec()
             self.time_list.append(self.current_time)
             self.x_list.append(self.state.x)
@@ -243,7 +234,7 @@ class TrajectoryTracker:
     def pure_pursuit_controller(self):
         if (self.target_ind >= len(self.cx)-1) and (self.rho < 0.2):
             # Shut down
-            rospy.signal_shutdown("Target Reached")
+            # rospy.signal_shutdown("Target Reached")
             return 0.0, 0.0
 
         self.target_ind, _ = self.target_course.search_target_index(self.state)
@@ -254,7 +245,7 @@ class TrajectoryTracker:
         # Calc control input
         v, omega, self.target_ind = self.pure_pursuit_steer_control(self.state, self.target_course, self.target_ind)
 
-        v = np.clip(v, -0.2, 0.2)
+        v = np.clip(v, -0.1, 0.1)
         omega = np.clip(omega, -np.pi, np.pi)
         return v, omega
 
@@ -366,11 +357,11 @@ class TrajectoryTracker:
         plt.rcParams.update({'font.size': 5})
 
         # plot
-        plt.plot(self.x_list, self.y_list, label='Robot Path')
+        plt.plot(self.x_list[10:], self.y_list[10:], label='Robot Path')
         plt.plot(self.target_x_list, self.target_y_list, label='Target Poses')
         plt.plot(self.cx, self.cy, label='Planned Path')
         # Plot the directions
-        TrajectoryTracker.plot_vectors(self.x_list, self.y_list, self.yaw_list)
+        TrajectoryTracker.plot_vectors(self.x_list[10:], self.y_list[10:], self.yaw_list[10:])
 
         # Format the plot
         plt.xlabel('X Position (m)')
