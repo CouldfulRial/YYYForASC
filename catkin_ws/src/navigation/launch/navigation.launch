@@ -1,0 +1,21 @@
+<launch>
+
+	<!-- Map Publisher -->
+	<node 
+		pkg             = "navigation"
+		type            = "map.py"
+		name            = "map"
+		output          = "screen"
+		required        = "false">
+	</node>
+
+	<!-- Path Planner -->
+	<node 
+		pkg             = "navigation"
+		type            = "path_planner.py"
+		name            = "path_planner"
+		output          = "screen"
+		required        = "true">
+	</node>
+
+</launch>
