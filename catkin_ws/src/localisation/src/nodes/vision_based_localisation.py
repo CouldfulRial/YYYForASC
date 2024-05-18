@@ -8,7 +8,6 @@ Subscribed topics:
     /asc/aruco_detections  [asclinic_pkg/FiducialMarkerArray]
 Published topics:
     vodom                  [nav_msgs/Odometry]
-    vodom_failure          [std_msgs/Bool]
 '''
 
 # Core imports
@@ -19,7 +18,7 @@ import rospkg
 from asclinic_pkg.msg import FiducialMarkerArray
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Quaternion
-from std_msgs.msg import Bool
+from sklearn.linear_model import RANSACRegressor
 
 # Algorithms imports
 import numpy as np
@@ -59,7 +58,6 @@ class VisionBasedLocalisation:
 
         # Publisher
         self.vodom_pub = rospy.Publisher("vodom", Odometry, queue_size=10)  # Vodom is publishing at the same rate as the aruco detector
-        # self.vodom_failure_pub = rospy.Publisher("vodom_failure", Bool, queue_size=10)
 
         # Initialise parameters and data
         self.x, self.y, self.psi = 0.0, 0.0, 0.0
@@ -85,7 +83,12 @@ class VisionBasedLocalisation:
             if distance_vec[2] > 4:
                 continue
             
-            if id == 26 or id > 30:
+            # Discard not used markers
+            if (id in [17, 21]) or id > 28:
+                continue
+
+            # For testing, keep the wanted markers only
+            if id not in [1, 2, 3, 4, 5, 6, 18, 19, 16]:
                 continue
 
             # Transformations
@@ -104,20 +107,48 @@ class VisionBasedLocalisation:
                             f"\n marker id: {id}" + 
                             f"\n x: {x:3.5f}, y: {y:3.5f}, psi: {psi/np.pi:3.5f}pi")
 
-        # If either is not empty
-        if x_list and y_list and psi_list:
-            self.x = np.mean(x_list)
-            self.y = np.mean(y_list)
-            self.psi = np.mean(psi_list)
-
-            # Track the last updated time
-            self.last_recv = rospy.Time.now()
-
-        # Get current time
-        self.current_time = rospy.Time.now()
+        # If no valid data, return
+        if len(x_list) == 0 and len(y_list) == 0 and len(psi_list) == 0:
+            return
+        # if the length is greater than 1, process the data, otherwise just use it
+        if len(x_list) > 1 and len(y_list) > 1 and len(psi_list) > 1:
+            # Data handle
+            self.x, self.y, self.psi = self.position_data_handle(x_list, y_list, psi_list)
+        else:
+            self.x = x_list[0]
+            self.y = y_list[0]
+            self.psi = psi_list[0]
         
         # Publish odometry
         self.publish_odom()
+
+    def position_data_handle(self, x_list, y_list, psi_list):
+        # Aggregate data into a numpy array
+        data = np.array([x_list, y_list, psi_list]).T
+
+        # Fit RANSAC for x and y separately
+        ransac_x = RANSACRegressor()
+        ransac_y = RANSACRegressor()
+
+        ransac_x.fit(np.arange(len(x_list)).reshape(-1, 1), x_list)
+        ransac_y.fit(np.arange(len(y_list)).reshape(-1, 1), y_list)
+
+        # Identify inliers
+        inlier_mask_x = ransac_x.inlier_mask_
+        inlier_mask_y = ransac_y.inlier_mask_
+
+        # Combine inliers for x and y
+        inliers = inlier_mask_x & inlier_mask_y
+
+        # Filter data based on inliers
+        filtered_data = data[inliers]
+
+        # Refine pose by averaging inlier data
+        refined_x = np.mean(filtered_data[:, 0])
+        refined_y = np.mean(filtered_data[:, 1])
+        refined_psi = np.mean(filtered_data[:, 2])    
+
+        return refined_x, refined_y, refined_psi
 
     def get_position(self, T, marker_id, theta):
         # Get marker position
@@ -161,8 +192,8 @@ class VisionBasedLocalisation:
         if marker_Psi < np.pi/2:
             if self.verbosity == 1:
                 print('right')
-            x = marker_x + marker_x_wrt_c
-            y = marker_y - marker_y_wrt_c
+            x = marker_x - marker_x_wrt_c
+            y = marker_y + marker_y_wrt_c
         if self.verbosity == 1:
             print(self)
         return x, y, psi
@@ -173,14 +204,6 @@ class VisionBasedLocalisation:
         
         # Publish odometry
         self.publish_odom()
-        
-        # Check if the last updated time is within timedout duration
-        if self.current_time - self.last_recv > rospy.Duration(TIMED_OUT):
-            if self.verbosity == 1:
-                rospy.logwarn("No marker detected!")
-            self.vodom_failure_pub.publish(True)
-        else:
-            self.vodom_failure_pub.publish(False)
 
     def publish_odom(self):
         # Create the odometry message

@@ -17,6 +17,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Quaternion
 from asclinic_pkg.msg import LeftRightFloat32
 from std_msgs.msg import Bool
+import tf
 
 # Algorithms
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
@@ -50,15 +51,17 @@ class Localisation:
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
         self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)  # 10Hz
-        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)               # 5 Hz
+        # self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)               # 5 Hz
         # self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
 
         # Publisher
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=10)
+        self.odom_broadcaster = tf.TransformBroadcaster()
 
         # Initialise parameters
         self.delta_theta_l, self.delta_theta_r = 0.0, 0.0
         self.Delta_s_t, self.Delta_psi_t = 0.0, 0.0
+        self.x = self.y = self.psi = 0.0
         self.z_t = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t
         self.phat_t_given_t = np.array([0.0, 0.0, 0.0])  # pose estimate after fusion of odometry with CV update t
         self.phat_t_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t given the previous CV update t-1
@@ -70,7 +73,7 @@ class Localisation:
         self.pose_cov_t_given_t_1 = np.zeros((3, 3))  # Covariance of the pose estimate at time t given t-1
         self.pose_cov_t_1_given_t_1 = np.eye(3) * 0.01 # Covariance of the pose estimate at time t-1 given t-1
         # Update the following covariance matrix after measurements
-        self.cv_cov_t = np.eye(3) * 0.01  # Covariance of the computer vision estimate at time t
+        self.cv_cov_t = np.eye(3) * 10**-6  # Covariance of the computer vision estimate at time t
 
         # vodom failure flag
         self.vodom_failure = False
@@ -80,7 +83,7 @@ class Localisation:
         self.current_time = rospy.Time.now()
         self.last_wodom = self.current_time.to_sec()
         self.last_vodom = self.current_time.to_sec()
-        self.timer = rospy.Timer(rospy.Duration(0.1), self.step_forward)
+        self.timer = rospy.Timer(rospy.Duration(0.5), self.step_forward)
 
     def wodom_callback(self, data:LeftRightFloat32):  #10Hz
         self.last_wodom = rospy.Time.now().to_sec()
@@ -144,9 +147,9 @@ class Localisation:
         odom_msg.child_frame_id = "base_link"
 
         # Get the current pose update
-        x = self.phat_t_given_t[X]
-        y = self.phat_t_given_t[Y]
-        psi = self.phat_t_given_t[PSI]
+        self.x = self.phat_t_given_t[X]
+        self.y = self.phat_t_given_t[Y]
+        self.psi = self.phat_t_given_t[PSI]
 
         if self.verbosity == 1:
             rospy.loginfo("-"*20 + "Localisation" + "-"*20 +
@@ -162,24 +165,35 @@ class Localisation:
                         f"\n updated pose (self.phat_t_given_t): \n{self.phat_t_given_t}" +
                         f"\n pose covariance (self.pose_cov_t_given_t): \n{self.pose_cov_t_given_t}" + 
                         f"\n\n##RESULT: {self.current_time.to_sec():.2f}s" + 
-                        f"\n x: {x:3.5f}, y: {y:3.5f}, psi: {psi/np.pi:3.5f}pi")
+                        f"\n x: {self.x:3.5f}, y: {self.y:3.5f}, psi: {self.psi/np.pi:3.5f}pi")
                         
 
         # Set the position in the odometry message
-        odom_msg.pose.pose.position = Point(x, y, 0)
-        odom_quat = quaternion_from_euler(0, 0, psi)
+        odom_msg.pose.pose.position = Point(self.x, self.y, 0)
+        odom_quat = quaternion_from_euler(0, 0, self.psi)
         odom_msg.pose.pose.orientation = Quaternion(*odom_quat)  # * is used to unpack the tuple
 
         # Set the velocity in the odometry message
         odom_msg.twist.twist.linear.x = self.Delta_s_t / TIME_STEP
         odom_msg.twist.twist.angular.z = self.Delta_psi_t / TIME_STEP
         
-        # Publish the odometry message
+        # Publish the odometry message and tf
         self.odom_pub.publish(odom_msg)
+        self.publish_odom_tf()
 
     ##############################################################################################################
     ############################## Untilities ####################################################################
     ##############################################################################################################
+
+    def publish_odom_tf(self):
+        # Create the transform broadcaster
+        self.odom_broadcaster.sendTransform(
+            (self.x, self.y, 0),
+            quaternion_from_euler(0, 0, self.psi),
+            self.current_time,
+            "base_link",
+            "odom"
+        )
 
     def vfail_callback(self, data:Bool):
         if data.data:
