@@ -93,7 +93,10 @@ class TargetCourse:
             ind = self.old_nearest_point_index
             distance_this_index = state.calc_distance(self.cx[ind], self.cy[ind])
             while True:
-                distance_next_index = state.calc_distance(self.cx[ind + 1], self.cy[ind + 1])
+                try:
+                    distance_next_index = state.calc_distance(self.cx[ind + 1], self.cy[ind + 1])
+                except IndexError:
+                    pass
                 if distance_this_index < distance_next_index:
                     break
                 ind = ind + 1 if (ind + 1) < len(self.cx)-1 else ind
@@ -177,6 +180,7 @@ class TrajectoryTracker:
         # Extract the planned path to self.cx, self.cy
         self.cx = np.array([point.pose.position.x for point in data.poses])
         self.cy = np.array([point.pose.position.y for point in data.poses])
+        self.target_course = TargetCourse(self.cx, self.cy)
 
     def odom_callback(self, data:Odometry):
         # Update the robot state
