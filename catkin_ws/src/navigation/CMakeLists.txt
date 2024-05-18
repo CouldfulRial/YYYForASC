@@ -184,6 +184,8 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/nodes/task_level_controller.py
+  src/nodes/path_planner.py
+  src/nodes/map.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -9,10 +9,11 @@ Published topics:
 
 import rospy
 from nav_msgs.msg import Odometry, Path
-from geometry_msgs.msg import PoseStamped, Pose, Point
+from geometry_msgs.msg import PoseStamped, Pose, Point, PointStamped
 import tf
 import heapq
 
+GRID_SIZE = 0.3  # m
 n, m = 32, 32  # Dimensions of the grid
 obstacles = [(6, 1), (6, 0), (6, -1), 
              (11, -2), (12, -2), (13, -2), 
@@ -41,6 +42,8 @@ class PathPlanner:
 
         # Subscribed topics
         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
+        # For debug, subscribe to a point from clicked point in RVIZ
+        self.goal_sub = rospy.Subscriber('clicked_point', PointStamped, self.goal_callback)
 
         # Timer: Update the path at 1Hz
         self.timer = rospy.Timer(rospy.Duration(1), self.timer_callback)
@@ -51,16 +54,20 @@ class PathPlanner:
         # Initialise parameters
         self.current_x = self.current_y = self.current_yaw = 0.0
         self.start = (0, 0)
-        self.goals = []
-        self.prev_goals = [(0, 0)]
+        self.goals = [(0, 0)]
+        self.prev_goals = None
         self.path = []
         self.path_pub = Path()
 
     def timer_callback(self, event):
         # Start planning paths if there are new goals
-        if self.goals != self.prev_goals:
+        if (self.prev_goals is None) or (self.goals != self.prev_goals):
             self.prev_goals = self.goals
-            self.start = (round(self.current_x), round(self.current_y))
+            rospy.loginfo(self.start)
+            self.start = (  # Convert to grid
+                round(self.current_x / GRID_SIZE),
+                round(self.current_y / GRID_SIZE)
+            )
             self.plan_path()
 
         # Publish the path
@@ -91,6 +98,12 @@ class PathPlanner:
             all_physical_path.append(physical_path)
 
         self.path = [item for sublist in all_physical_path for item in sublist]
+        rospy.loginfo(self.path)
+
+    def goal_callback(self, data:PointStamped):
+        # Extract the goal from the clicked point only if the frame is "map"
+        if data.header.frame_id == 'map':
+            self.goals = [(data.point.x, data.point.y)]
 
     def odom_callback(self, data:Odometry):
         # Extract the current pose from the odometry message
