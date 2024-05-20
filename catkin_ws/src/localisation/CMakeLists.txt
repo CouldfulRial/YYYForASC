@@ -9,6 +9,7 @@ project(localisation)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
+  visualization_msgs
   nav_msgs
   roscpp
   rospy
