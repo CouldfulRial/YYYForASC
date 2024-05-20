@@ -91,6 +91,10 @@ class MotorController:
             rospy.signal_shutdown("Debugging finished")
 
         duty_cycle_left, duty_cycle_right = self.controller(error_left, error_right)
+        if self.desired_left_speed == 0:
+            duty_cycle_left = 0
+        if self.desired_right_speed == 0:
+            duty_cycle_right = 0
         duty_cycle_left += DC_BIAS
         duty_cycle_right += DC_BIAS
 
