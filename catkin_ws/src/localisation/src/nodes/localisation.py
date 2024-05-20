@@ -51,7 +51,7 @@ class Localisation:
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
         self.wsub = rospy.Subscriber('mes_speeds', LeftRightFloat32, self.wodom_callback)  # 10Hz
-        # self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)               # 5 Hz
+        self.vsub = rospy.Subscriber('vodom', Odometry, self.vodom_callback)               # 5 Hz
         # self.vfail_sub = rospy.Subscriber('vodom_failure', Bool, self.vfail_callback)
 
         # Publisher
