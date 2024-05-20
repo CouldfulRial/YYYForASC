@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 # Constatns
 TIME_STEP = 0.1  # s
 DEBUG_LENGTH = 10  # s
-DC_BIAS = 5.67 
+DC_BIAS = 0
 
 class MotorController:
     def __init__(self):
