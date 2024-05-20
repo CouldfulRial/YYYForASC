@@ -7,13 +7,14 @@ Subscribed topics:
     odom    [nav_msgs/Odometry]
 Published topics:
     cmd_vel [geometry_msgs/Twist]
+    tar_pt  [geometry_msgs/PointStamped]  # The current target point for visualisation
 '''
 import rospy
 import rospkg
 import datetime
 import csv
 from nav_msgs.msg import Path, Odometry
-from geometry_msgs.msg import Twist, Vector3, Pose2D
+from geometry_msgs.msg import Twist, Vector3, Point, PointStamped
 import tf
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,16 +28,16 @@ Lfc = 0.5  # [m] look-ahead distance
 ## Controller
 # P
 P_rho = 2
-P_beta = 0#1
-P_alpha = 1
+P_beta = 0
+P_alpha = 1.2
 # I
 I_rho = 0
-I_beta = 0#0.0001
-I_alpha = 0.0001
+I_beta = 0#0.00001
+I_alpha =0 #0.00001
 # D
 D_rho = 0
 D_beta = 0#10
-D_alpha = 50
+D_alpha = 3.6
 
 """
     Path tracking simulation with pure pursuit steering and PID speed control.
@@ -96,14 +97,14 @@ class TargetCourse:
                 try:
                     distance_next_index = state.calc_distance(self.cx[ind + 1], self.cy[ind + 1])
                 except IndexError:
-                    pass
+                    break
                 if distance_this_index < distance_next_index:
                     break
                 ind = ind + 1 if (ind + 1) < len(self.cx)-1 else ind
                 distance_this_index = distance_next_index
             self.old_nearest_point_index = ind
 
-        Lf = Lfc
+        Lf = k * state.v + Lfc
 
         # search look ahead target point index
         while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
@@ -131,6 +132,7 @@ class TrajectoryTracker:
             self.simulate = 0
 
         # Initialise the variables
+        self.Lf = 0.0
         self.state = State(x=0.0, y=0.0, yaw=0.0, v=0.0)
         self.target_x = self.target_y = 0.0
         self.cx = self.cy = np.array([0.0])
@@ -148,15 +150,17 @@ class TrajectoryTracker:
         self.rhod      = self.betad      = self.alphad      = 0.0
         self.last_rho  = self.last_beta  = self.last_alpha  = 0.0
 
+        # Publisher
+        self.cmd_vel_publisher = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+        self.tar_pt_publisher = rospy.Publisher('tar_pt', PointStamped, queue_size=10)
+
         # Subscribers
         self.path_subscriber = rospy.Subscriber('path', Path, self.path_callback)
         self.odom_subscriber = rospy.Subscriber('odom', Odometry, self.odom_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(TIME_STEP), self.timer_callback)
-
-        # Publisher
-        self.cmd_vel_publisher = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+        self.debugger = rospy.Timer(rospy.Duration(2), self.debugger_callback)
 
         # Register the shutdown callback
         rospy.on_shutdown(self.shutdown_callback)
@@ -175,6 +179,10 @@ class TrajectoryTracker:
             self.save_path = self.get_save_path()
             initial_time = datetime.datetime.now()
             self.formatted_time = initial_time.strftime('%y%m%d_%H_%M_%S')
+
+    def debugger_callback(self, event):
+        if self.simulate == 1:
+            self.beta_sig = np.pi / 2# if self.beta_sig == 0.0 else 0.0
 
     def path_callback(self, data:Path):
         # Extract the planned path to self.cx, self.cy
@@ -197,11 +205,11 @@ class TrajectoryTracker:
         # Logging
         if self.verbosity == 1:
             rospy.loginfo("-"*20 + self.node_name + "-"*20 +
-                        f"\n\nRobot State: {self.current_time:.2f}s"
+                        f"\n\nRobot State: {self.current_time:.2f}s, debug: {self.simulate}"
                         f"\nx: {self.state.x:3.5f}, y: {self.state.y:3.5f}, yaw: {self.state.yaw/np.pi:3.5f}pi" +
                         f"\nv: {self.state.v:3.5f}" +
                         "\n\nCurrent Targeting: "
-                        f"\nind: {self.target_ind}, Lf: {Lfc:3.5f}" +
+                        f"\nind: {self.target_ind}, Lf: {self.Lf:3.5f}" +
                         f"\ncx: {self.cx}" +
                         f"\ncy: {self.cy}" +
                         f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.beta/np.pi:3.5f}pi)" + 
@@ -215,13 +223,22 @@ class TrajectoryTracker:
                         f"\ncmd_v: {self.v:3.5f}, cmd_omega: {self.omega:3.5f}" + 
                         "\n")
 
-        # Publish
+        # Publish the control
         self.cmd_vel_publisher.publish(
             Twist(
                 Vector3(self.v, 0, 0),
                 Vector3(0, 0, self.omega)
             )
         )
+
+        # Publish the target point
+        msg = PointStamped()
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = "map"
+        msg.point.x = self.target_x
+        msg.point.y = self.target_y
+        msg.point.z = 0.0
+        self.tar_pt_publisher.publish(msg)
 
         # Data saving
         if self.save_data == 1 and self.state.x != 0.0:
@@ -250,11 +267,11 @@ class TrajectoryTracker:
         v, omega, self.target_ind = self.pure_pursuit_steer_control(self.state, self.target_course, self.target_ind)
 
         v = np.clip(v, -0.1, 0.1)
-        omega = np.clip(omega, -np.pi, np.pi)
+        omega = np.clip(omega, -np.pi/2, np.pi/2)
         return v, omega
 
     def pure_pursuit_steer_control(self, state:State, trajectory:TargetCourse, pind):
-        ind, Lf = trajectory.search_target_index(state)
+        ind, self.Lf = trajectory.search_target_index(state)
 
         if pind >= ind:
             ind = pind
@@ -281,6 +298,8 @@ class TrajectoryTracker:
         self.rho = np.hypot(ex, ey)
         # The angle between the goal theta and the current position of the robot
         self.beta = np.arctan2(ey, ex)
+        if self.simulate == 1:
+            self.beta = self.beta_sig
         # Intended angle between the robot and the direction of rho
         self.alpha = TrajectoryTracker.wrap_angle(self.beta - state.yaw)
 
@@ -304,17 +323,17 @@ class TrajectoryTracker:
 
         # Limit speed if trying to steering. Hence, the gain should inversly p to abs(alpha)
         # P = P_rho * (1 - abs(self.alpha) / np.pi)
-        P = 1 / (abs(self.alpha) + 1 / P_rho)
+        # P = 1 / (abs(self.alpha) + 1 / P_rho)
 
         ## Calculate the inputs to the robot
-        acc   = P   * self.rho   + I_rho   * self.rhoi   + D_rho   * self.rhod
+        acc   = P_rho   * self.rho   + I_rho   * self.rhoi   + D_rho   * self.rhod
         delta = P_beta  * self.beta  + I_beta  * self.betai  + D_beta  * self.betad + \
                 P_alpha * self.alpha + I_alpha * self.alphai + D_alpha * self.alphad
 
         ## Return the control inputs
         # v, omega = state.input(acc, delta)
         
-        v = acc
+        v = 0.0 if self.simulate == 1 else acc
         omega = delta
 
         ## Update the error terms
@@ -342,6 +361,7 @@ class TrajectoryTracker:
             return 0  # If intialised to None, return 0
 
     def shutdown_callback(self):
+        self.verbosity = 0
         self.cmd_vel_publisher.publish(
             Twist(
                 Vector3(0.0, 0, 0),
