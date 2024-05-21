@@ -17,5 +17,15 @@
 	</node>
 
 	<!-- Motors -->
-	<!-- <include file    = "$(find controller)/launch/motors.launch" /> -->
+	<include file    = "$(find controller)/launch/motors.launch" />
+
+	<!-- Detector -->
+	<node
+		pkg             = "localisation"
+		type            = "yellow_ellipse_detector.py"
+		name            = "yellow_ellipse_detector"
+		output          = "screen"
+		required        = "true">
+	</node>
+
 </launch>

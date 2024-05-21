@@ -3,6 +3,7 @@
 This node is for state-level control
 Subscribed topics:
     odom                  [nav_msgs/Odometry]
+    goal                  [geometry_msgs/Point]
 Published topics:
     path                  [nav_msgs/Path]
 '''
@@ -15,17 +16,25 @@ import heapq
 
 GRID_SIZE = 0.3  # m
 n, m = 32, 32  # Dimensions of the grid
-obstacles = [(6, 1), (6, 0), (6, -1), 
-             (11, -2), (12, -2), (13, -2), 
-             (19, -1), (19, 0), (19, 1), 
-             (24, -2), (25, -2), (26, -2), 
-             (25, -2), (26, -2), (27, -2), 
-             (-1, -2), (0, -2), (1, -2), 
-             (7, 11), (7, 10), (7, 9), 
-             (8, 9), (9, 9), (10, 9),
-             (8, 10), (9, 10), (10, 10),
-             (8, 11), (9, 11), (10, 11),
-            (11, 11), (11, 10), (11, 9)]  # Obstacles
+obstacles = [(6, 1), (6, 0), (6, -1),       # ID1
+             (7, 1), (7, 0), (7, -1),       # ID2
+             (12, 3), (13, 3), (14, 3),     # ID3
+             (12, 4), (13, 4), (14, 4),     # ID4
+             (19, -1), (19, 0), (19, 1),    # ID5
+             (20, -1), (20, 0), (20, 1),    # ID6 
+             (25, 3), (26, 3), (27, 3),     # ID7
+             (25, 4), (26, 4), (27, 4),     # ID8
+             (-1, 3), (0, 3), (1, 3),       # ID11
+             (-1, 4), (0, 4), (1, 4),       # ID12
+             (7, -11), (7, -10), (7, -9),   # ID16
+             (9, -9), (10, -9), (11, -9),    # ID18
+             # teaching desk
+             (8, -11), (8, -10), (8, -9),
+             (9, -11), (9, -10), (9, -9),
+             (10, -11), (10, -10), (10, -9),
+             (11, -11), (11, -10), (11, -9),
+             (12, -11), (12, -10), (12, -9)  # ID19
+            ] 
 
 class PathPlanner:
     def __init__(self):
@@ -43,7 +52,8 @@ class PathPlanner:
         # Subscribed topics
         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_callback)
         # For debug, subscribe to a point from clicked point in RVIZ
-        self.goal_sub = rospy.Subscriber('clicked_point', PointStamped, self.goal_callback)
+        # self.goal_sub = rospy.Subscriber('clicked_point', PointStamped, self.goal_callback)
+        self.goal_sub = rospy.Subscriber('goal', Point, self.goal_callback)
 
         # Timer: Update the path at 1Hz
         self.timer = rospy.Timer(rospy.Duration(1), self.timer_callback)
@@ -64,10 +74,7 @@ class PathPlanner:
         if (self.prev_goals is None) or (self.goals != self.prev_goals):
             self.prev_goals = self.goals
             rospy.loginfo(self.start)
-            self.start = (  # Convert to grid
-                round(self.current_x / GRID_SIZE),
-                round(self.current_y / GRID_SIZE)
-            )
+            self.start = (self.current_x, self.current_y)
             self.plan_path()
 
         # Publish the path
@@ -77,33 +84,47 @@ class PathPlanner:
         self.pos_pub.publish(self.path_pub)
 
     def plan_path(self):
-        # Plan the path
-        goals_trans = []
-        for goal in self.goals:
-            goal_grid = translate_to_grid_coordinates(goal[0], goal[1])
-            goal_trans = translate_coords(goal_grid[0], goal_grid[1])
-            goals_trans.append(goal_trans)
+        start = self.start
+        goals = self.goals
 
-        start_trans = translate_coords(self.start[0], self.start[1])
-        sta_goal = [start_trans] + goals_trans
+        # Plan the path
+        goals_grid = [] # grid coorinate set
+        goals_blank = [] # blank coodinate set
+
+        for goal in goals:
+            goal_grid = trans_phy_to_grid(goal[0], goal[1])
+            goal_blank = trans_phy_to_blank(goal[0], goal[1])
+            goals_grid.append(goal_grid) # input for astar
+            goals_blank.append(goal_blank) # input for astar
+
+        start_trans = trans_phy_to_blank(start[0], start[1])
+        sta_goal = [start_trans] + goals_blank
 
         grid = create_grid(n, m, obstacles)
-        all_block_path = []
-        all_physical_path = []
+        grid_path = []
+        phy_path = []
+        all_grid_path = []
+        all_phy_path = []
+        # print("start & goal :", sta_goal)
+        # print("# in sta_goal :", len(sta_goal))
+
         for i in range(len(sta_goal)-1):
             path = a_star_search(grid, sta_goal[i], sta_goal[i+1])
-            block_path = translate_back(path)
-            physical_path = translate_to_physical_coordinates(block_path)
-            all_block_path.append(block_path)
-            all_physical_path.append(physical_path)
+            for (blank_x, blank_y) in path:
+                grid_path.append(trans_blank_to_grid(blank_x, blank_y))
+                phy_path.append(trans_blank_to_phy(blank_x, blank_y))
+            all_grid_path.append(grid_path)
+            all_phy_path.append(phy_path)
 
-        self.path = [item for sublist in all_physical_path for item in sublist]
-        rospy.loginfo(self.path)
+        self.path = [item for sublist in all_phy_path for item in sublist]
+        # rospy.loginfo(self.path)
 
-    def goal_callback(self, data:PointStamped):
+    def goal_callback(self, data:Point):
         # Extract the goal from the clicked point only if the frame is "map"
-        if data.header.frame_id == 'map':
-            self.goals = [(data.point.x, data.point.y)]
+        # return
+        # if data.header.frame_id == 'map':
+        #     self.goals = [(data.point.x, data.point.y)]
+        self.goals = [(data.x, data.y)]
 
     def odom_callback(self, data:Odometry):
         # Extract the current pose from the odometry message
@@ -136,13 +157,13 @@ class PriorityQueue:
     
     def get(self):
         return heapq.heappop(self.elements)[1]
-    
+
 def heuristic(a, b):
     # Using Chebyshev distance as the heuristic
     (x1, y1) = a
     (x2, y2) = b
     return max(abs(x1 - x2), abs(y1 - y2)) * 10  # Multiplied by 10 to keep consistent with step costs
-    
+
 def a_star_search(grid, start, goal):
     frontier = PriorityQueue()
     frontier.put(start, 0)
@@ -191,31 +212,56 @@ def reconstruct_path(came_from, start, goal):
 def create_grid(n, m, obstacles):
     grid = [[0] * m for _ in range(n)]
     for (ox, oy) in obstacles:
-        grid_x, grid_y = translate_coords(ox, oy)
+        grid_x, grid_y = trans_grid_to_blank(ox, oy)
         if 0 <= grid_x < len(grid) and 0 <= grid_y < len(grid[0]):
             grid[grid_x][grid_y] = 1
     return grid
 
-def translate_coords(x, y):
-    # Translate grid coordinates from (-m, -w) to (n, o) into array indices
-    grid_x = x + 6
-    grid_y = y + 17
+# phy----refers to the physical coordinates in real world
+# grid---refers to the grid coordinates that the origin is where the robot start
+# blank--refers to the blank grid origin that the origin is located at the most left-bottom corner
+############################################################################################
+def trans_phy_to_blank(phy_x, phy_y):
+    # Translate phy to grid first
+    # Then translate grid to blank:
+    grid_x, grid_y = trans_phy_to_grid(phy_x, phy_y)
+    blank_x, blank_y = trans_grid_to_blank(grid_x, grid_y)
+    return (blank_x, blank_y)
+
+def trans_blank_to_phy(blank_x, blank_y):
+    # Translate blank to grid first
+    # Then translate grid to phy:
+    grid_x, grid_y = trans_blank_to_grid(blank_x, blank_y)
+    phy_x, phy_y = trans_grid_to_phy(grid_x, grid_y)
+    return (phy_x, phy_y)
+
+############################################################################################
+def trans_blank_to_grid(blank_x, blank_y):
+    # Translate blank coordinates into grid indices
+    grid_x = blank_x - 6
+    grid_y = 17 - blank_y
     return (grid_x, grid_y)
 
-def translate_back(path):
-    # Translate grid coordinates from (-m, -w) to (n, o) into array indices
-    # Convert grid coordinates to physical coordinates
-    return [(x - 6, y - 17) for x, y in path]
+def trans_grid_to_blank(grid_x, grid_y):
+    # Translate grid coordinates into blank indices
+    blank_x = grid_x + 6
+    blank_y = 17 - grid_y
+    return (blank_x, blank_y)
 
-def translate_to_grid_coordinates(x, y, unit_size=0.3):
+############################################################################################
+def trans_grid_to_phy(grid_x, grid_y, unit_size=0.3):
+    # Convert grid coordinates to physical coordinates
+    phy_x = grid_x * unit_size
+    phy_y = grid_y * unit_size
+    return (phy_x, phy_y)
+
+def trans_phy_to_grid(phy_x, phy_y, unit_size=0.3):
     # Convert physical coordinates to grid coordinates
-    grid_x = int(x / unit_size)
-    grid_y = int(y / unit_size)
+    grid_x = int(phy_x / unit_size)
+    grid_y = int(phy_y / unit_size)
     return (grid_x, grid_y)
 
-def translate_to_physical_coordinates(path, unit_size=0.3):
-    # Convert grid coordinates to physical coordinates
-    return [(x * unit_size, y * unit_size) for x, y in path]
+############################################################################################
 
 if __name__ == '__main__':
     controller = PathPlanner()

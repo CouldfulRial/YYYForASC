@@ -29,7 +29,7 @@ class Twist2WheelSpeeds:
         self.mes_speed_sub = rospy.Subscriber('cmd_vel', Twist, self.cmd_vel_callback)
 
         # Timer: Limit the inner loop reference to 1Hz
-        self.timer = rospy.Timer(rospy.Duration(1), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
 
         # Publisher
         self.duty_cycle_pub = rospy.Publisher('cmd_speeds', LeftRightFloat32, queue_size=10)

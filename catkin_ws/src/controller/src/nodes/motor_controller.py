@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 # Constatns
 TIME_STEP = 0.1  # s
 DEBUG_LENGTH = 10  # s
-DC_BIAS = 0
+DC_BIAS = 5
 
 class MotorController:
     def __init__(self):
@@ -95,8 +95,8 @@ class MotorController:
             duty_cycle_left = 0
         if self.desired_right_speed == 0:
             duty_cycle_right = 0
-        duty_cycle_left += DC_BIAS
-        duty_cycle_right += DC_BIAS
+        duty_cycle_left += DC_BIAS if duty_cycle_left > 0 else -DC_BIAS
+        duty_cycle_right += DC_BIAS if duty_cycle_right > 0 else -DC_BIAS
 
         if self.verbosity == 1:
             rospy.loginfo("-"*25 + "Motor Controller" + "-"*25 +  

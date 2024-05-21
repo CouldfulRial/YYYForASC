@@ -61,11 +61,13 @@ class Localisation:
         # Initialise parameters
         self.delta_theta_l, self.delta_theta_r = 0.0, 0.0
         self.Delta_s_t, self.Delta_psi_t = 0.0, 0.0
-        self.x = self.y = self.psi = 0.0
+        self.x = 7.5
+        self.y = 4
+        self.psi = np.pi
         self.z_t = np.array([0.0, 0.0, 0.0])  # pose estimate from computer vision at time t
-        self.phat_t_given_t = np.array([0.0, 0.0, 0.0])  # pose estimate after fusion of odometry with CV update t
-        self.phat_t_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t given the previous CV update t-1
-        self.phat_t_1_given_t_1 = np.array([0.0, 0.0, 0.0])  # pose estimate from odometry at time t-1 given the previous CV update t-1
+        self.phat_t_given_t = np.array([7.5, 4, np.pi])  # pose estimate after fusion of odometry with CV update t
+        self.phat_t_given_t_1 = np.array([7.5, 4, np.pi])  # pose estimate from odometry at time t given the previous CV update t-1
+        self.phat_t_1_given_t_1 = np.array([7.5, 4, np.pi])  # pose estimate from odometry at time t-1 given the previous CV update t-1
         self.Kt = np.zeros((3, 3))  # Kalman gain
 
         # Covariance matrices
@@ -83,7 +85,7 @@ class Localisation:
         self.current_time = rospy.Time.now()
         self.last_wodom = self.current_time.to_sec()
         self.last_vodom = self.current_time.to_sec()
-        self.timer = rospy.Timer(rospy.Duration(0.5), self.step_forward)
+        self.timer = rospy.Timer(rospy.Duration(0.1), self.step_forward)
 
     def wodom_callback(self, data:LeftRightFloat32):  #10Hz
         self.last_wodom = rospy.Time.now().to_sec()

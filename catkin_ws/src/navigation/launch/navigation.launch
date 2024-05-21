@@ -10,12 +10,23 @@
 	</node>
 
 	<!-- Path Planner -->
-	<node 
+	<!-- <node 
 		pkg             = "navigation"
 		type            = "path_planner.py"
 		name            = "path_planner"
 		output          = "screen"
 		required        = "true">
+	</node> -->
+
+	<!-- fsm -->
+	<node 
+		pkg             = "navigation"
+		type            = "fsm.py"
+		name            = "fsm"
+		output          = "screen"
+		required        = "true">
+
+		<param name     = "verbosity" value = "1" />
 	</node>
 
 </launch>

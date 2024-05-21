@@ -11,8 +11,7 @@
 		output          = "screen"
 		required        = "true">
 
-		<param name     = "verbosity" value = "1" />
+		<param name     = "verbosity" value = "0" />
 	</node>
-
 
 </launch>

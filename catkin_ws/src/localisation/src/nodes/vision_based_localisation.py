@@ -18,6 +18,7 @@ import rospkg
 from asclinic_pkg.msg import FiducialMarkerArray
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Quaternion
+from visualization_msgs.msg import Marker
 from sklearn.linear_model import RANSACRegressor
 
 # Algorithms imports
@@ -45,6 +46,11 @@ class VisionBasedLocalisation:
         except KeyError:
             self.verbosity = 1
 
+        # Initialise parameters and data
+        self.x, self.y, self.psi = 0.0, 0.0, 0.0
+        self.data_path = VisionBasedLocalisation.get_save_path()
+        self.markers = VisionBasedLocalisation.read_marker_positions(self.data_path + "markers.csv")
+
         # Subscribers
         # rospy.Subscriber(topic_name, msg_type, callback_function)
         self.sub = rospy.Subscriber('/asc/aruco_detections', FiducialMarkerArray, self.marker_callback)
@@ -58,17 +64,14 @@ class VisionBasedLocalisation:
 
         # Publisher
         self.vodom_pub = rospy.Publisher("vodom", Odometry, queue_size=10)  # Vodom is publishing at the same rate as the aruco detector
-
-        # Initialise parameters and data
-        self.x, self.y, self.psi = 0.0, 0.0, 0.0
-        self.data_path = VisionBasedLocalisation.get_save_path()
-        self.markers = VisionBasedLocalisation.read_marker_positions(self.data_path + "markers.csv")
+        self.markers_pub = rospy.Publisher("detected_markers", Marker, queue_size=10)  # Visualise the detected markers for RVIZ
 
     def marker_callback(self, data:FiducialMarkerArray):
         # This callback func is triggered only if a marker is detected
         id_num = data.num_markers
 
         # Initialise the pose lists
+        id_list = []
         x_list = []
         y_list = []
         psi_list = []
@@ -80,7 +83,7 @@ class VisionBasedLocalisation:
             rotation_vec = marker.rvec  # R
 
             # If distance too far, discard
-            if distance_vec[2] > 4:
+            if distance_vec[2] > 5:
                 continue
             
             # Discard not used markers
@@ -88,8 +91,9 @@ class VisionBasedLocalisation:
                 continue
 
             # For testing, keep the wanted markers only
-            if id not in [1, 2, 3, 4, 5, 6, 18, 19, 16]:
-                continue
+            # if id not in [1, 2, 3, 4, 5, 6, 11, 12, 13]:
+            # # if id not in [28, 30]:
+            #     continue
 
             # Transformations
             R, _ = cv2.Rodrigues(rotation_vec)
@@ -97,6 +101,7 @@ class VisionBasedLocalisation:
             euler_angles = euler_from_matrix(R,'sxyz')
 
             # Update the pose info
+            id_list.append(id)
             x, y, psi = self.get_position(T, id, euler_angles[1])
             x_list.append(x)
             y_list.append(y)
@@ -119,8 +124,14 @@ class VisionBasedLocalisation:
             self.y = y_list[0]
             self.psi = psi_list[0]
         
+        # Get current time
+        self.current_time = rospy.Time.now()
+
         # Publish odometry
         self.publish_odom()
+
+        # Publish the detected markers
+        self.publish_detected_markers(id_list)
 
     def position_data_handle(self, x_list, y_list, psi_list):
         # Aggregate data into a numpy array
@@ -198,13 +209,6 @@ class VisionBasedLocalisation:
             print(self)
         return x, y, psi
 
-    def timer_callback(self, event):
-        # Get current time
-        self.current_time = rospy.Time.now()
-        
-        # Publish odometry
-        self.publish_odom()
-
     def publish_odom(self):
         # Create the odometry message
         odom_msg = Odometry()
@@ -220,6 +224,31 @@ class VisionBasedLocalisation:
         # Publish the odometry message
         self.vodom_pub.publish(odom_msg)
 
+    def publish_detected_markers(self, id_list):
+        # Create the marker message
+        marker_msg = Marker()
+        marker_msg.header.frame_id = "map"
+        marker_msg.header.stamp = self.current_time
+        marker_msg.ns = "detected_markers"
+        marker_msg.id = 0
+        marker_msg.type = Marker.POINTS
+        marker_msg.action = Marker.ADD
+        marker_msg.pose.orientation.w = 1.0
+        marker_msg.scale.x = 0.1
+        marker_msg.scale.y = 0.1
+        marker_msg.color.a = 1.0
+        marker_msg.color.r = 1.0
+
+        # Set the position of the markers
+        for id in id_list:
+            point = Point()
+            point.x = self.markers[id][X]
+            point.y = self.markers[id][Y]
+            point.z = 0.3
+            marker_msg.points.append(point)
+
+        # Publish the marker message
+        self.markers_pub.publish(marker_msg)
 
     ##############################################################################################################
     ############################## Untilities ####################################################################

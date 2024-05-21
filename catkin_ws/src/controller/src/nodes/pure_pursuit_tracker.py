@@ -8,13 +8,15 @@ Subscribed topics:
 Published topics:
     cmd_vel [geometry_msgs/Twist]
     tar_pt  [geometry_msgs/PointStamped]  # The current target point for visualisation
+    tar_reached [std_msgs/Bool]  # The target has been reached
 '''
 import rospy
 import rospkg
 import datetime
 import csv
 from nav_msgs.msg import Path, Odometry
-from geometry_msgs.msg import Twist, Vector3, Point, PointStamped
+from geometry_msgs.msg import Twist, Vector3, Point, PointStamped, PoseStamped, Pose
+from std_msgs.msg import Bool, String
 import tf
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,22 +24,25 @@ import numpy as np
 
 # Parmeters
 TIME_STEP = 0.1  # s
-k = 0.1  # look forward gain
-Lfc = 0.5  # [m] look-ahead distance
+k = 0#25  # look forward gain
+Lfc = 1  # [m] look-ahead distance
+points  = [(7.5, 4), (0, 4), (-1, 3), (-1, -1.75), (1, -3.75), (6, -3.75), (7, -2.75), (7, 2), (5, 2), (5, -1), (4, -2), (3, -1), (3, 2), (1, 2), (1, -2)]
+centres = [None,     (0, 3), None,    (1, -1.75),  None,       (6, -2.75), None,       (6, 2), None,   (4, -1), (4, -1), None,    (2, 2), None           ]
+dx = 0.7
 
 ## Controller
 # P
 P_rho = 2
 P_beta = 0
-P_alpha = 1.2
+P_alpha = 3
 # I
 I_rho = 0
 I_beta = 0#0.00001
-I_alpha =0 #0.00001
+I_alpha = 0.00001
 # D
 D_rho = 0
 D_beta = 0#10
-D_alpha = 3.6
+D_alpha = 10
 
 """
     Path tracking simulation with pure pursuit steering and PID speed control.
@@ -133,16 +138,21 @@ class TrajectoryTracker:
 
         # Initialise the variables
         self.Lf = 0.0
-        self.state = State(x=0.0, y=0.0, yaw=0.0, v=0.0)
+        self.state = State(x=7.5, y=4, yaw=np.pi, v=0.0)
         self.target_x = self.target_y = 0.0
-        self.cx = self.cy = np.array([0.0])
-        self.target_course = TargetCourse(self.cx, self.cy)
         self.target_ind = 0
         self.v = self.omega = 0.0
         self.ini_time = rospy.Time.now()
         self.current_time = 0.0
+        self.fsm_state = "STOP"
         if self.simulate == 1:
             self.beta_sig = 0.0
+
+        # Initialise the trajectory
+        self.trajectory = traj(points, dx, centres)
+        self.cx = [p[0] for p in self.trajectory]
+        self.cy = [p[1] for p in self.trajectory]
+        self.target_course = TargetCourse(self.cx, self.cy)
 
         # Controller variables
         self.rho       = self.beta       = self.alpha       = 0.0
@@ -153,10 +163,13 @@ class TrajectoryTracker:
         # Publisher
         self.cmd_vel_publisher = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         self.tar_pt_publisher = rospy.Publisher('tar_pt', PointStamped, queue_size=10)
+        self.tar_reached_publisher = rospy.Publisher('tar_reached', Bool, queue_size=10)
+        self.path_pub = rospy.Publisher('path', Path, queue_size=10)
 
         # Subscribers
-        self.path_subscriber = rospy.Subscriber('path', Path, self.path_callback)
+        # self.path_subscriber = rospy.Subscriber('path', Path, self.path_callback)
         self.odom_subscriber = rospy.Subscriber('odom', Odometry, self.odom_callback)
+        self.state_sub = rospy.Subscriber('state', String, self.state_callback)
 
         # Timer: Calls the timer_callback function at 10 Hz
         self.timer = rospy.Timer(rospy.Duration(TIME_STEP), self.timer_callback)
@@ -185,10 +198,12 @@ class TrajectoryTracker:
             self.beta_sig = np.pi / 2# if self.beta_sig == 0.0 else 0.0
 
     def path_callback(self, data:Path):
+        return
         # Extract the planned path to self.cx, self.cy
         self.cx = np.array([point.pose.position.x for point in data.poses])
         self.cy = np.array([point.pose.position.y for point in data.poses])
         self.target_course = TargetCourse(self.cx, self.cy)
+        self.target_ind = 0
 
     def odom_callback(self, data:Odometry):
         # Update the robot state
@@ -198,9 +213,14 @@ class TrajectoryTracker:
                           v=data.twist.twist.linear.x, 
                           omega=data.twist.twist.angular.z)
 
+    def state_callback(self, data:String):
+        self.fsm_state = data.data
+
     def timer_callback(self, event):
         # Execute the control loop
         self.v, self.omega = self.pure_pursuit_controller()
+        if self.fsm_state != "SEARCH":
+            self.v = self.omega = 0.0
 
         # Logging
         if self.verbosity == 1:
@@ -210,8 +230,6 @@ class TrajectoryTracker:
                         f"\nv: {self.state.v:3.5f}" +
                         "\n\nCurrent Targeting: "
                         f"\nind: {self.target_ind}, Lf: {self.Lf:3.5f}" +
-                        f"\ncx: {self.cx}" +
-                        f"\ncy: {self.cy}" +
                         f"\ntarget: ({self.target_x:3.5f}, {self.target_y:3.5f}, {self.beta/np.pi:3.5f}pi)" + 
                         "\n\nController Variables: "
                         "\nrho: "
@@ -230,6 +248,13 @@ class TrajectoryTracker:
                 Vector3(0, 0, self.omega)
             )
         )
+        
+        # Publish the path
+        self.path_msg = Path()
+        self.path_msg.header.stamp = rospy.Time.now()
+        self.path_msg.header.frame_id = 'map'
+        self.path_msg.poses = [PoseStamped(pose=Pose(position=Point(x=x, y=y))) for x, y in self.trajectory]
+        self.path_pub.publish(self.path_msg)
 
         # Publish the target point
         msg = PointStamped()
@@ -253,10 +278,12 @@ class TrajectoryTracker:
             self.omega_list.append(self.omega)
 
     def pure_pursuit_controller(self):
-        if (self.target_ind >= len(self.cx)-1) and (self.rho < 0.2):
-            # Shut down
-            # rospy.signal_shutdown("Target Reached")
+        if (self.target_ind >= len(self.cx)-1) and (self.rho < 0.5):
+            # Announce that the target is reached
+            self.tar_reached_publisher.publish(Bool(True))
+            rospy.sleep(1)
             return 0.0, 0.0
+        self.tar_reached_publisher.publish(Bool(False))
 
         self.target_ind, _ = self.target_course.search_target_index(self.state)
 
@@ -266,8 +293,8 @@ class TrajectoryTracker:
         # Calc control input
         v, omega, self.target_ind = self.pure_pursuit_steer_control(self.state, self.target_course, self.target_ind)
 
-        v = np.clip(v, -0.1, 0.1)
-        omega = np.clip(omega, -np.pi/2, np.pi/2)
+        v = np.clip(v, -0.2, 0.2)
+        omega = np.clip(omega, -np.pi, np.pi)
         return v, omega
 
     def pure_pursuit_steer_control(self, state:State, trajectory:TargetCourse, pind):
@@ -302,7 +329,7 @@ class TrajectoryTracker:
             self.beta = self.beta_sig
         # Intended angle between the robot and the direction of rho
         self.alpha = TrajectoryTracker.wrap_angle(self.beta - state.yaw)
-
+    
         ## I
         self.rhoi += self.rho
         self.betai += self.beta
@@ -325,16 +352,21 @@ class TrajectoryTracker:
         # P = P_rho * (1 - abs(self.alpha) / np.pi)
         # P = 1 / (abs(self.alpha) + 1 / P_rho)
 
+        if abs(self.alpha) > 0.17:
+            P = 0.1
+        else:
+            P = 0.4
+
         ## Calculate the inputs to the robot
-        acc   = P_rho   * self.rho   + I_rho   * self.rhoi   + D_rho   * self.rhod
+        acc   = P   * self.rho   + I_rho   * self.rhoi   + D_rho   * self.rhod
         delta = P_beta  * self.beta  + I_beta  * self.betai  + D_beta  * self.betad + \
                 P_alpha * self.alpha + I_alpha * self.alphai + D_alpha * self.alphad
 
         ## Return the control inputs
         # v, omega = state.input(acc, delta)
         
-        v = 0.0 if self.simulate == 1 else acc
-        omega = delta
+        v = acc
+        omega = delta #2 * np.sin(self.alpha) / self.Lf * 0.25 + 0.1 * self.alphad
 
         ## Update the error terms
         self.last_rho = self.rho
@@ -473,7 +505,89 @@ class TrajectoryTracker:
         rospack = rospkg.RosPack()
         return rospack.get_path("controller") + '/src/data/'
 
+def traj(points, dx, centres):
+    # This function is used to generate a trajectory from a list of points, the returned list is a list of points that points are inserted in between the points of the input list with a distance of dx between them.
+    trajectory = []
+    for i in range(len(points)-1):
+        curr = points[i]
+        next = points[i+1]
 
+        generated_points = generate_pts_between(curr, next, dx, centres[i])
+        print(f"Generated points between {curr} and {next}: \n{generated_points}")
+        trajectory.extend(generated_points)
+
+    return trajectory
+
+def generate_pts_between(curr, next, dx, centre=None):
+    if centre is None:
+        return generate_linear_points(curr, next, dx)
+    
+    # Calculate the radius of the circle
+    return generate_arc_points(curr, next, centre, dx)
+        
+def generate_linear_points(a, b, d):
+    # Calculate the total distance between points a and b
+    total_distance = np.linalg.norm(np.array(b) - np.array(a))
+    
+    # Calculate the number of points needed
+    num_points = int(total_distance / d) + 1
+
+    # Generate the points
+    points = []
+    for i in range(num_points + 1):
+        t = i / num_points
+        x = a[0] + t * (b[0] - a[0])
+        y = a[1] + t * (b[1] - a[1])
+        points.append((x, y))
+    
+    return points
+
+def generate_arc_points(a, b, centre, d):
+    def distance(p1, p2):
+        return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+    def angle_between_points(p, centre):
+        return np.arctan2(p[1] - centre[1], p[0] - centre[0])
+
+    # Calculate the radius
+    radius = distance(a, centre)
+
+    # Calculate start and end angles
+    start_angle = angle_between_points(a, centre)
+    end_angle = angle_between_points(b, centre)
+
+    # Ensure the angles are in the correct range for the shortest arc
+    if end_angle < start_angle:
+        end_angle += 2 * np.pi
+
+    # Calculate the angle difference
+    angle_diff = end_angle - start_angle
+
+    # Adjust if the angle difference exceeds π to get the shortest arc
+    if angle_diff > np.pi:
+        start_angle, end_angle = end_angle, start_angle + 2 * np.pi
+
+    # Calculate the arc length
+    arc_length = radius * (end_angle - start_angle)
+
+    # Calculate the number of points needed
+    num_points = int(arc_length / d) + 1
+
+    # Calculate the angle increment
+    angle_increment = (end_angle - start_angle) / (num_points - 1)
+
+    # Generate points on the arc
+    points = []
+    for i in range(num_points):
+        angle = start_angle + i * angle_increment
+        x = centre[0] + radius * np.cos(angle)
+        y = centre[1] + radius * np.sin(angle)
+        points.append((x, y))
+
+    if a == (5, -1) or a == (4, -2):
+        points.reverse()
+
+    return points
 
 if __name__ == '__main__':
     controller = TrajectoryTracker()
